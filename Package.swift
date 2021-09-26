@@ -4,15 +4,16 @@
 import PackageDescription
 
 let package = Package(
-    name: "ptformat-objc",
+    name: "PtFormatObjC",
     platforms: [
         .macOS(.v10_14)
     ],
     products: [
         // Products define the executables and libraries a package produces, and make them visible to other packages.
         .library(
-            name: "ptformat-objc",
-            targets: ["ptformat-objc"]),
+            name: "PtFormatObjC",
+            //type: .dynamic,
+            targets: ["PtFormatObjC"]),
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
@@ -22,14 +23,14 @@ let package = Package(
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
         // Targets can depend on other targets in this package, and on products in packages this package depends on.
         .target(
-            name: "ptformat-objc",
+            name: "PtFormatObjC",
             dependencies: [],
             cSettings: [
                 .headerSearchPath(".")
             ]),
         .testTarget(
-            name: "ptformat-objc-tests",
-            dependencies: ["ptformat-objc"],
+            name: "PtFormatObjCTests",
+            dependencies: ["PtFormatObjC"],
             resources: [
                 .copy("Resources")
             ]),
