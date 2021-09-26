@@ -10,9 +10,11 @@
 #import <Foundation/Foundation.h>
 
 @interface ProToolsFormat : NSObject
-- (instancetype)init;
++ (instancetype)new NS_UNAVAILABLE;
++ (instancetype)newWithPath:(NSString*)path;
+- (instancetype)init NS_UNAVAILABLE;
+- (instancetype)initWithPath:(NSString*)path;
 - (void)dealloc;
-- (instancetype)loadFrom:(NSString*)path withSr:(int64_t)targetsr;
 - (int64_t)sessionRate;
 @end
 

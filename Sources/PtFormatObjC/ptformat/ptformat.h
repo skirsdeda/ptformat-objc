@@ -40,7 +40,7 @@ public:
 				-3           incompatible pt version
 				-4           error parsing pt session
 	*/
-	int load(std::string const& path, int64_t targetsr);
+	int load(std::string const& path);
 
 	/* Return values:	0            success
 				-1           error decrypting pt session
@@ -234,8 +234,6 @@ private:
 	int64_t        _sessionrate;
 	uint8_t        _version;
 	uint8_t*       _product;
-	int64_t        _targetrate;
-	float          _ratefactor;
 	bool           is_bigendian;
 
 	struct block_t {
@@ -268,7 +266,6 @@ private:
 	void parse_region_info(uint32_t j, block_t& blk, region_t& r);
 	void parse_three_point(uint32_t j, uint64_t& start, uint64_t& offset, uint64_t& length);
 	uint8_t gen_xor_delta(uint8_t xor_value, uint8_t mul, bool negative);
-	void setrates(void);
 	void cleanup(void);
 	void free_block(struct block_t& b);
 	void free_all_blocks(void);

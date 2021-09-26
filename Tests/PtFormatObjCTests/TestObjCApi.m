@@ -18,8 +18,7 @@
 - (void)testSampleRate {
     NSBundle *resourceBundle = SWIFTPM_MODULE_BUNDLE;
     NSString *resourcePath = [resourceBundle pathForResource:@"RegionTest" ofType:@"ptx" inDirectory:@"Resources"];
-    ProToolsFormat *ptFormat = [ProToolsFormat new];
-    [ptFormat loadFrom: resourcePath withSr: 44100];
+    ProToolsFormat *ptFormat = [ProToolsFormat newWithPath:resourcePath];
     XCTAssertEqual([ptFormat sessionRate], 44100);
 }
 

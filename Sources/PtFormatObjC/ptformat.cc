@@ -82,8 +82,6 @@ PTFFormat::PTFFormat()
 	, _sessionrate(0)
 	, _version(0)
 	, _product(NULL)
-	, _targetrate (0)
-	, _ratefactor (1.0)
 	, is_bigendian(false)
 {
 }
@@ -437,7 +435,7 @@ PTFFormat::unxor(std::string const& path) {
 			-4           error parsing pt session
 */
 int
-PTFFormat::load(std::string const& ptf, int64_t targetsr) {
+PTFFormat::load(std::string const& ptf) {
 	cleanup();
 	_path = ptf;
 
@@ -449,8 +447,6 @@ PTFFormat::load(std::string const& ptf, int64_t targetsr) {
 
 	if (_version < 5 || _version > 12)
 		return -3;
-
-	_targetrate = targetsr;
 
 	int err = 0;
 	if ((err = parse())) {
@@ -508,14 +504,6 @@ PTFFormat::gen_xor_delta(uint8_t xor_value, uint8_t mul, bool negative) {
 	}
 	// Should not occur
 	return 0;
-}
-
-void
-PTFFormat::setrates(void) {
-	_ratefactor = 1.f;
-	if (_sessionrate != 0) {
-		_ratefactor = (float)_targetrate / _sessionrate;
-	}
 }
 
 bool
@@ -629,7 +617,6 @@ PTFFormat::parse(void) {
 #endif
 	if (!parseheader())
 		return -1;
-	setrates();
 	if (_sessionrate < 44100 || _sessionrate > 192000)
 		return -2;
 	if (!parseaudio())
@@ -853,8 +840,8 @@ PTFFormat::parse_region_info(uint32_t j, block_t& blk, region_t& r) {
 
 	findex = u_endian_read4(&_ptfunxored[blk.offset + blk.block_size], is_bigendian);
 	wav_t f (findex);
-	f.posabsolute = start * _ratefactor;
-	f.length = length * _ratefactor;
+	f.posabsolute = start;
+	f.length = length;
 
 	wav_t found;
 	if (find_wav(findex, found)) {
@@ -862,9 +849,9 @@ PTFFormat::parse_region_info(uint32_t j, block_t& blk, region_t& r) {
 	}
 
 	std::vector<midi_ev_t> m;
-	r.startpos = (int64_t)(start*_ratefactor);
-	r.sampleoffset = (int64_t)(sampleoffset*_ratefactor);
-	r.length = (int64_t)(length*_ratefactor);
+	r.startpos = start;
+	r.sampleoffset = sampleoffset;
+    r.length = length;
 	r.wave = f;
 	r.midi = m;
 }
@@ -1044,7 +1031,7 @@ PTFFormat::parserest(void) {
 										verbose_printf("dropped region %d\n", rawindex);
 										continue;
 									}
-									ti.reg.startpos = start * _ratefactor;
+									ti.reg.startpos = start;
 									if (ti.reg.index != 65535) {
 										_tracks.push_back(ti);
 									}
@@ -1270,7 +1257,7 @@ PTFFormat::parsemidi(void) {
 									int64_t signedstart = (int64_t)(start - ZERO_TICKS);
 									if (signedstart < 0)
 										signedstart = -signedstart;
-									ti.reg.startpos = (uint64_t)(signedstart * _ratefactor);
+									ti.reg.startpos = signedstart;
 									if (ti.reg.index != 65535) {
 										_miditracks.push_back(ti);
 									}
