@@ -450,8 +450,8 @@ PTFFormat::load(std::string const& ptf) {
 
 	int err = 0;
 	if ((err = parse())) {
-		printf ("PARSE FAILED %d\n", err);
-		return -4;
+		verbose_printf ("PARSE FAILED %d\n", err);
+		return err - 3; // -4, -5, -6, -7, -8
 	}
 
 	return 0;

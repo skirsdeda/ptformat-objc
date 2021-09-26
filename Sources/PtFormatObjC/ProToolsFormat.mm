@@ -13,18 +13,25 @@
 
 PTFFormat *object;
 
-+ (instancetype) newWithPath:(NSString *)path {
-    return [[ProToolsFormat alloc] initWithPath:path];
++ (instancetype) newWithPath:(NSString *)path error:(NSError **)error {
+    return [[ProToolsFormat alloc] initWithPath:path error:error];
 }
 
-- (instancetype) initWithPath:(NSString *)path {
+- (instancetype) initWithPath:(NSString *)path error:(NSError **)error {
     self = [super init];
 
     if (self != nil) {
         object = new PTFFormat();
         std::string cPath = std::string([path UTF8String], [path lengthOfBytesUsingEncoding:NSUTF8StringEncoding]);
-        object->load(cPath);
-        // TODO: return error codes from load or throw exception even
+
+        int result;
+        if ((result = object->load(cPath))) {
+            if (error != NULL) {
+                *error = [NSError errorWithDomain:@"com.github.ptformat-objc.ErrorDomain" code:result userInfo:nil];
+            }
+            delete object;
+            return nil;
+        }
     }
 
     return self;

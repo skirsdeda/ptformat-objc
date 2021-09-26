@@ -11,9 +11,9 @@
 
 @interface ProToolsFormat : NSObject
 + (instancetype)new NS_UNAVAILABLE;
-+ (instancetype)newWithPath:(NSString*)path;
++ (instancetype)newWithPath:(NSString*)path error:(NSError **)error;
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithPath:(NSString*)path;
+- (instancetype)initWithPath:(NSString*)path error:(NSError **)error;
 - (void)dealloc;
 - (int64_t)sessionRate;
 @end
