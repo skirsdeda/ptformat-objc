@@ -18,8 +18,19 @@
 - (void)testSampleRate {
     NSBundle *resourceBundle = SWIFTPM_MODULE_BUNDLE;
     NSString *resourcePath = [resourceBundle pathForResource:@"RegionTest" ofType:@"ptx" inDirectory:@"Resources"];
-    ProToolsFormat *ptFormat = [ProToolsFormat newWithPath:resourcePath];
+    NSError *error;
+    ProToolsFormat *ptFormat = [ProToolsFormat newWithPath:resourcePath error:&error];
+    XCTAssertNotNil(ptFormat);
+    XCTAssertNil(error);
     XCTAssertEqual([ptFormat sessionRate], 44100);
+}
+
+- (void)testErrorOnInvalidPath {
+    NSError *error;
+    ProToolsFormat *ptFormat = [ProToolsFormat newWithPath:@"/dev/null" error:&error];
+    XCTAssertNil(ptFormat);
+    XCTAssertNotNil(error);
+    XCTAssertEqual([error code], 1);
 }
 
 @end

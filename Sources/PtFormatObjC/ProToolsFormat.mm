@@ -27,9 +27,11 @@ PTFFormat *object;
         int result;
         if ((result = object->load(cPath))) {
             if (error != NULL) {
-                *error = [NSError errorWithDomain:@"com.github.ptformat-objc.ErrorDomain" code:result userInfo:nil];
+                // TODO: add error description to userInfo dictionary
+                // convert error code to a positive integer for NSError, otherwise it will overflow
+                *error = [NSError errorWithDomain:@"com.github.ptformat-objc.ErrorDomain" code:-result userInfo:nil];
             }
-            delete object;
+            // dealloc will still be called so no need to delete object here
             return nil;
         }
     }
@@ -38,7 +40,9 @@ PTFFormat *object;
 }
 
 - (void) dealloc {
-    delete object;
+    if (object != NULL) {
+        delete object;
+    }
 }
 
 - (int64_t)sessionRate { 
