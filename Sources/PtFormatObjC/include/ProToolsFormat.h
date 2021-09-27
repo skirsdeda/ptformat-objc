@@ -15,7 +15,9 @@
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithPath:(NSString*)path error:(NSError **)error;
 - (void)dealloc;
+- (uint8_t)version;
 - (int64_t)sessionRate;
+- (uint8_t)bitDepth;
 @end
 
 #endif /* PRO_TOOLS_FORMAT_H */

@@ -45,8 +45,16 @@ PTFFormat *object;
     }
 }
 
+- (uint8_t)version {
+    return object->version();
+}
+
 - (int64_t)sessionRate { 
     return object->sessionrate();
+}
+
+- (uint8_t)bitDepth {
+    return object->bitdepth();
 }
 
 @end

@@ -208,6 +208,7 @@ public:
 
 	uint8_t version () const { return _version; }
 	int64_t sessionrate () const { return _sessionrate ; }
+    uint8_t bitdepth () const { return _bitdepth; }
 	const std::string& path () { return _path; }
 
 	const std::vector<wav_t>&    audiofiles () const { return _audiofiles ; }
@@ -232,6 +233,7 @@ private:
 	unsigned char* _ptfunxored;
 	uint64_t       _len;
 	int64_t        _sessionrate;
+    uint8_t        _bitdepth;
 	uint8_t        _version;
 	uint8_t*       _product;
 	bool           is_bigendian;
