@@ -41,40 +41,7 @@
 #define MAX_CONTENT_TYPE	0x3000
 #define MAX_CHANNELS_PER_TRACK	8
 
-#if 0
-#define DEBUG
-#endif
-
-#ifdef DEBUG
-#define verbose_printf(...) printf("XXX PTFORMAT XXX: " __VA_ARGS__)
-#else
-#define verbose_printf(...)
-#endif
-
 using namespace std;
-
-static void
-hexdump(uint8_t *data, int length, int level)
-{
-    int i,j,k,end,step=16;
-
-    for (i = 0; i < length; i += step) {
-        end = i + step;
-        if (end > length) end = length;
-        for (k = 0; k < level; k++)
-            printf("    ");
-        for (j = i; j < end; j++) {
-            printf("%02X ", data[j]);
-        }
-        for (j = i; j < end; j++) {
-            if (data[j] < 128 && data[j] > 32)
-                printf("%c", data[j]);
-            else
-                printf(".");
-        }
-        printf("\n");
-    }
-}
 
 PTFFormat::PTFFormat()
     : _ptfunxored(0)
@@ -88,100 +55,6 @@ PTFFormat::PTFFormat()
 
 PTFFormat::~PTFFormat() {
     cleanup();
-}
-
-const std::string
-PTFFormat::get_content_description(uint16_t ctype) {
-    switch(ctype) {
-    case 0x0030:
-        return std::string("INFO product and version");
-    case 0x1001:
-        return std::string("WAV samplerate, size");
-    case 0x1003:
-        return std::string("WAV metadata");
-    case 0x1004:
-        return std::string("WAV list full");
-    case 0x1007:
-        return std::string("region name, number");
-    case 0x1008:
-        return std::string("AUDIO region name, number (v5)");
-    case 0x100b:
-        return std::string("AUDIO region list (v5)");
-    case 0x100f:
-        return std::string("AUDIO region->track entry");
-    case 0x1011:
-        return std::string("AUDIO region->track map entries");
-    case 0x1012:
-        return std::string("AUDIO region->track full map");
-    case 0x1014:
-        return std::string("AUDIO track name, number");
-    case 0x1015:
-        return std::string("AUDIO tracks");
-    case 0x1017:
-        return std::string("PLUGIN entry");
-    case 0x1018:
-        return std::string("PLUGIN full list");
-    case 0x1021:
-        return std::string("I/O channel entry");
-    case 0x1022:
-        return std::string("I/O channel list");
-    case 0x1028:
-        return std::string("INFO sample rate");
-    case 0x103a:
-        return std::string("WAV names");
-    case 0x104f:
-        return std::string("AUDIO region->track subentry (v8)");
-    case 0x1050:
-        return std::string("AUDIO region->track entry (v8)");
-    case 0x1052:
-        return std::string("AUDIO region->track map entries (v8)");
-    case 0x1054:
-        return std::string("AUDIO region->track full map (v8)");
-    case 0x1056:
-        return std::string("MIDI region->track entry");
-    case 0x1057:
-        return std::string("MIDI region->track map entries");
-    case 0x1058:
-        return std::string("MIDI region->track full map");
-    case 0x2000:
-        return std::string("MIDI events block");
-    case 0x2001:
-        return std::string("MIDI region name, number (v5)");
-    case 0x2002:
-        return std::string("MIDI regions map (v5)");
-    case 0x204b:
-        return std::string("General info"); // possibly only in newer versions, cause this has 32bit(float) bit depth info
-    case 0x2067:
-        return std::string("INFO path of session");
-    case 0x2511:
-        return std::string("Snaps block");
-    case 0x2519:
-        return std::string("MIDI track full list");
-    case 0x251a:
-        return std::string("MIDI track name, number");
-    case 0x2523:
-        return std::string("COMPOUND region element");
-    case 0x2602:
-        return std::string("I/O route");
-    case 0x2603:
-        return std::string("I/O routing table");
-    case 0x2628:
-        return std::string("COMPOUND region group");
-    case 0x2629:
-        return std::string("AUDIO region name, number (v10)");
-    case 0x262a:
-        return std::string("AUDIO region list (v10)");
-    case 0x262c:
-        return std::string("COMPOUND region full map");
-    case 0x2633:
-        return std::string("MIDI regions name, number (v10)");
-    case 0x2634:
-        return std::string("MIDI regions map (v10)");
-    case 0x271a:
-        return std::string("MARKER list");
-    default:
-        return std::string("UNKNOWN content type");
-    }
 }
 
 static uint16_t
@@ -356,8 +229,9 @@ PTFFormat::foundin(std::string const& haystack, std::string const& needle) {
     }
 }
 
-/* Return values:	0            success
-            -1           error decrypting pt session
+/* Return values:
+     0    success
+    -1    error decrypting pt session
 */
 int
 PTFFormat::unxor(std::string const& path) {
@@ -431,11 +305,12 @@ PTFFormat::unxor(std::string const& path) {
     return 0;
 }
 
-/* Return values:	0            success
-            -1           error decrypting pt session
-            -2           error detecting pt session
-            -3           incompatible pt version
-            -4           error parsing pt session
+/* Return values:
+    0    success
+   -1    error decrypting pt session
+   -2    error detecting pt session
+   -3    incompatible pt version
+   -4    error parsing pt session
 */
 int
 PTFFormat::load(std::string const& ptf) {
@@ -453,7 +328,6 @@ PTFFormat::load(std::string const& ptf) {
 
     int err = 0;
     if ((err = parse())) {
-        verbose_printf ("PARSE FAILED %d\n", err);
         return err - 3; // -4, -5, -6, -7, -8
     }
 
@@ -522,7 +396,6 @@ PTFFormat::parse_block_at(uint32_t pos, struct block_t *block, struct block_t *p
     if (parent)
         max = parent->block_size + parent->offset;
 
-    b.zmark = ZMARK;
     b.block_type = u_endian_read2(&_ptfunxored[pos+1], is_bigendian);
     b.block_size = u_endian_read4(&_ptfunxored[pos+3], is_bigendian);
     b.content_type = u_endian_read2(&_ptfunxored[pos+7], is_bigendian);
@@ -533,7 +406,6 @@ PTFFormat::parse_block_at(uint32_t pos, struct block_t *block, struct block_t *p
     if (b.block_type & 0xff00)
         return false;
 
-    block->zmark = b.zmark;
     block->block_type = b.block_type;
     block->block_size = b.block_size;
     block->content_type = b.content_type;
@@ -553,23 +425,6 @@ PTFFormat::parse_block_at(uint32_t pos, struct block_t *block, struct block_t *p
 }
 
 void
-PTFFormat::dump_block(struct block_t& b, int level)
-{
-    int i;
-
-    for (i = 0; i < level; i++) {
-        printf("    ");
-    }
-    printf("%s(0x%04x)\n", get_content_description(b.content_type).c_str(), b.content_type);
-    hexdump(&_ptfunxored[b.offset], b.block_size, level);
-
-    for (vector<PTFFormat::block_t>::iterator c = b.child.begin();
-            c != b.child.end(); ++c) {
-        dump_block(*c, level + 1);
-    }
-}
-
-void
 PTFFormat::free_block(struct block_t& b)
 {
     for (vector<PTFFormat::block_t>::iterator c = b.child.begin();
@@ -583,20 +438,12 @@ PTFFormat::free_block(struct block_t& b)
 void
 PTFFormat::free_all_blocks(void)
 {
-    for (vector<PTFFormat::block_t>::iterator b = blocks.begin();
-            b != blocks.end(); ++b) {
+    for (vector<PTFFormat::block_t>::iterator b = _blocks.begin();
+            b != _blocks.end(); ++b) {
         free_block(*b);
     }
 
-    blocks.clear();
-}
-
-void
-PTFFormat::dump(void) {
-    for (vector<PTFFormat::block_t>::iterator b = blocks.begin();
-            b != blocks.end(); ++b) {
-        dump_block(*b, 0);
-    }
+    _blocks.clear();
 }
 
 void
@@ -606,7 +453,7 @@ PTFFormat::parseblocks(void) {
     while (i < _len) {
         struct block_t b;
         if (parse_block_at(i, &b, NULL, 0)) {
-            blocks.push_back(b);
+            _blocks.push_back(b);
         }
         i += b.block_size ? b.block_size + 7 : 1;
     }
@@ -615,9 +462,6 @@ PTFFormat::parseblocks(void) {
 int
 PTFFormat::parse(void) {
     parseblocks();
-#ifdef DEBUG
-    dump();
-#endif
     if (!parseheader())
         return -1;
     if (_sessionrate < 44100 || _sessionrate > 192000)
@@ -636,8 +480,8 @@ PTFFormat::parseheader(void) {
     bool found = false;
     uint8_t bitdepthotherblk = 0;
 
-    for (vector<PTFFormat::block_t>::iterator b = blocks.begin();
-            b != blocks.end(); ++b) {
+    for (vector<PTFFormat::block_t>::iterator b = _blocks.begin();
+            b != _blocks.end(); ++b) {
         if (b->content_type == 0x1028) {
             _bitdepth = _ptfunxored[b->offset+3];
             _sessionrate = u_endian_read4(&_ptfunxored[b->offset+4], is_bigendian);
@@ -671,8 +515,8 @@ PTFFormat::parseaudio(void) {
     std::string wavname;
 
     // Parse wav names
-    for (vector<PTFFormat::block_t>::iterator b = blocks.begin();
-            b != blocks.end(); ++b) {
+    for (vector<PTFFormat::block_t>::iterator b = _blocks.begin();
+            b != _blocks.end(); ++b) {
         if (b->content_type == 0x1004) {
 
             nwavs = u_endian_read4(&_ptfunxored[b->offset+2], is_bigendian);
@@ -737,8 +581,8 @@ PTFFormat::parseaudio(void) {
     }
 
     // Add wav length information
-    for (vector<PTFFormat::block_t>::iterator b = blocks.begin();
-            b != blocks.end(); ++b) {
+    for (vector<PTFFormat::block_t>::iterator b = _blocks.begin();
+            b != _blocks.end(); ++b) {
         if (b->content_type == 0x1004) {
 
             vector<PTFFormat::wav_t>::iterator wav = _audiofiles.begin();
@@ -881,8 +725,8 @@ PTFFormat::parserest(void) {
     rindex = 0;
 
     // Parse sources->regions
-    for (vector<PTFFormat::block_t>::iterator b = blocks.begin();
-            b != blocks.end(); ++b) {
+    for (vector<PTFFormat::block_t>::iterator b = _blocks.begin();
+            b != _blocks.end(); ++b) {
         if (b->content_type == 0x100b || b->content_type == 0x262a) {
             //nregions = u_endian_read4(&_ptfunxored[b->offset+2], is_bigendian);
             for (vector<PTFFormat::block_t>::iterator c = b->child.begin();
@@ -909,8 +753,8 @@ PTFFormat::parserest(void) {
     }
 
     // Parse tracks
-    for (vector<PTFFormat::block_t>::iterator b = blocks.begin();
-            b != blocks.end(); ++b) {
+    for (vector<PTFFormat::block_t>::iterator b = _blocks.begin();
+            b != _blocks.end(); ++b) {
         if (b->content_type == 0x1015) {
             //ntracks = u_endian_read4(&_ptfunxored[b->offset+2], is_bigendian);
             for (vector<PTFFormat::block_t>::iterator c = b->child.begin();
@@ -933,7 +777,6 @@ PTFFormat::parserest(void) {
                             t.reg = r;
                             _tracks.push_back(t);
                         }
-                        //verbose_printf("%s : %d(%d)\n", reg, nch, ch_map[0]);
                         j += 2;
                     }
                 }
@@ -942,8 +785,8 @@ PTFFormat::parserest(void) {
     }
 
     // Reparse from scratch to exclude audio tracks from all tracks to get midi tracks
-    for (vector<PTFFormat::block_t>::iterator b = blocks.begin();
-            b != blocks.end(); ++b) {
+    for (vector<PTFFormat::block_t>::iterator b = _blocks.begin();
+            b != _blocks.end(); ++b) {
         if (b->content_type == 0x2519) {
             tindex = 0;
             mindex = 0;
@@ -975,8 +818,8 @@ PTFFormat::parserest(void) {
     }
 
     // Parse regions->tracks
-    for (vector<PTFFormat::block_t>::iterator b = blocks.begin();
-            b != blocks.end(); ++b) {
+    for (vector<PTFFormat::block_t>::iterator b = _blocks.begin();
+            b != _blocks.end(); ++b) {
         tindex = 0;
         if (b->content_type == 0x1012) {
             //nregions = u_endian_read4(&_ptfunxored[b->offset+2], is_bigendian);
@@ -1022,7 +865,6 @@ PTFFormat::parserest(void) {
                         if (d->content_type == 0x1050) {
                             region_is_fade = (_ptfunxored[d->offset + 46] == 0x01);
                             if (region_is_fade) {
-                                verbose_printf("dropped fade region\n");
                                 continue;
                             }
                             for (vector<PTFFormat::block_t>::iterator e = d->child.begin();
@@ -1035,12 +877,7 @@ PTFFormat::parserest(void) {
                                     start = u_endian_read4(&_ptfunxored[j], is_bigendian);
                                     tindex = count;
                                     track_t ti;
-                                    if (!find_track(tindex, ti)) {
-                                        verbose_printf("dropped track %d\n", tindex);
-                                        continue;
-                                    }
-                                    if (!find_region(rawindex, ti.reg)) {
-                                        verbose_printf("dropped region %d\n", rawindex);
+                                    if (!find_track(tindex, ti) || !find_region(rawindex, ti.reg)) {
                                         continue;
                                     }
                                     ti.reg.startpos = start;
@@ -1095,8 +932,8 @@ PTFFormat::parsemidi(void) {
     rindex = 0;
 
     // Parse MIDI events
-    for (vector<PTFFormat::block_t>::iterator b = blocks.begin();
-            b != blocks.end(); ++b) {
+    for (vector<PTFFormat::block_t>::iterator b = _blocks.begin();
+            b != _blocks.end(); ++b) {
         if (b->content_type == 0x2000) {
 
             k = b->offset;
@@ -1158,8 +995,6 @@ PTFFormat::parsemidi(void) {
                             r.midi = mc.chunk;
 
                             _midiregions.push_back(r);
-                            //verbose_printf("MIDI %s : r(%d) (%llu, %llu, %llu)\n", str, rindex, zero_ticks, region_pos, midi_len);
-                            //dump_block(*d, 1);
                         }
                     }
                 }
@@ -1168,8 +1003,8 @@ PTFFormat::parsemidi(void) {
     }
     
     // COMPOUND MIDI regions
-    for (vector<PTFFormat::block_t>::iterator b = blocks.begin();
-            b != blocks.end(); ++b) {
+    for (vector<PTFFormat::block_t>::iterator b = _blocks.begin();
+            b != _blocks.end(); ++b) {
         if (b->content_type == 0x262c) {
             mindex = 0;
             for (vector<PTFFormat::block_t>::iterator c = b->child.begin();
@@ -1210,7 +1045,6 @@ PTFFormat::parsemidi(void) {
                                     stop2 = signedval;
                                     j += 16;
                                     //nn = u_endian_read4(&_ptfunxored[j], is_bigendian);
-                                    //verbose_printf("COMPOUND %s : c(%d) r(%d) ?(%d) ?(%d) (%llu %llu)(%llu %llu %llu)\n", str, mindex, rawindex, n, nn, start2, stop2, start, offset, length);
                                     count++;
                                 }
                             }
@@ -1224,7 +1058,6 @@ PTFFormat::parsemidi(void) {
                                 r.length = mc.maxlen;
                                 r.midi = mc.chunk;
                                 _midiregions.push_back(r);
-                                verbose_printf("%s : MIDI region mr(%d) ?(%d) (%lu %lu %lu)\n", regionname.c_str(), mindex, n, start, offset, length);
                                 mindex++;
                             }
                         }
@@ -1235,8 +1068,8 @@ PTFFormat::parsemidi(void) {
     }
     
     // Put midi regions onto midi tracks
-    for (vector<PTFFormat::block_t>::iterator b = blocks.begin();
-            b != blocks.end(); ++b) {
+    for (vector<PTFFormat::block_t>::iterator b = _blocks.begin();
+            b != _blocks.end(); ++b) {
         if (b->content_type == 0x1058) {
             //nregions = u_endian_read4(&_ptfunxored[b->offset+2], is_bigendian);
             count = 0;
@@ -1257,15 +1090,9 @@ PTFFormat::parsemidi(void) {
                                     j += 4 + 1;
                                     start = u_endian_read5(&_ptfunxored[j], is_bigendian);
                                     tindex = count;
-                                    if (!find_miditrack(tindex, ti)) {
-                                        verbose_printf("dropped midi t(%d) r(%d)\n", tindex, rawindex);
+                                    if (!find_miditrack(tindex, ti) || !find_midiregion(rawindex, ti.reg)) {
                                         continue;
                                     }
-                                    if (!find_midiregion(rawindex, ti.reg)) {
-                                        verbose_printf("dropped midiregion\n");
-                                        continue;
-                                    }
-                                    //verbose_printf("MIDI : %s : t(%d) r(%d) %llu(%llu)\n", ti.name.c_str(), tindex, rawindex, start, ti.reg.startpos);
                                     int64_t signedstart = (int64_t)(start - ZERO_TICKS);
                                     if (signedstart < 0)
                                         signedstart = -signedstart;
