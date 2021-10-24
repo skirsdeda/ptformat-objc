@@ -292,8 +292,6 @@ PTFFormat::unxor(std::string const& path) {
     for (i=0; i < xor_len; i++)
         xxor[i] = (i * xor_delta) & 0xff;
 
-    /* hexdump(xxor, xor_len); */
-
     /* Read file and decrypt rest of file */
     i = 0x14;
     fseek(fp, i, SEEK_SET);

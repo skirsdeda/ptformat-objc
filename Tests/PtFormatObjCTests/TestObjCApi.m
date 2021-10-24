@@ -40,15 +40,19 @@
 }
 
 - (void)metadataCheckFor:(NSString*)path ofType:(NSString*)type ver:(uint8_t)ver sr:(int64_t)sr bits:(uint8_t)bits {
-    NSBundle *resourceBundle = SWIFTPM_MODULE_BUNDLE;
-    NSString *resourcePath = [resourceBundle pathForResource:path ofType:type inDirectory:@"Resources"];
     NSError *error;
-    ProToolsFormat *ptFormat = [ProToolsFormat newWithPath:resourcePath error:&error];
+    ProToolsFormat *ptFormat = [self loadFromResource:path ofType:type error:&error];
     XCTAssertNotNil(ptFormat);
     XCTAssertNil(error);
     XCTAssertEqual([ptFormat version], ver);
     XCTAssertEqual([ptFormat sessionRate], sr);
     XCTAssertEqual([ptFormat bitDepth], bits);
+}
+
+- (ProToolsFormat*)loadFromResource:(NSString*)path ofType:(NSString*)type error:(NSError**)error {
+    NSBundle *resourceBundle = SWIFTPM_MODULE_BUNDLE;
+    NSString *resourcePath = [resourceBundle pathForResource:path ofType:type inDirectory:@"Resources"];
+    return [ProToolsFormat newWithPath:resourcePath error:error];
 }
 
 - (void)testErrorOnInvalidPath {
@@ -57,6 +61,17 @@
     XCTAssertNil(ptFormat);
     XCTAssertNotNil(error);
     XCTAssertEqual([error code], 1);
+}
+
+- (void)testUnxored {
+    NSError *error;
+    ProToolsFormat *ptFormat1 = [self loadFromResource:@"Untitled32" ofType:@"ptx" error:&error];
+    XCTAssertNotNil(ptFormat1);
+    XCTAssertNil(error);
+    ProToolsFormat *ptFormat2 = [self loadFromResource:@"Untitled32" ofType:@"ptx" error:&error];
+    XCTAssertNotNil(ptFormat2);
+    XCTAssertNil(error);
+    XCTAssertEqualObjects([ptFormat1 unxoredData], [ptFormat2 unxoredData]);
 }
 
 @end

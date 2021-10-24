@@ -47,6 +47,10 @@ enum BlockContentType: UInt16 {
     case MarkerList = 0x271a
 }
 
+let kDiffMinus = "--"
+let kDiffPlus = "++"
+let kByteGroupsBy = 16
+
 struct Blocks: ParsableCommand {
     static var configuration = CommandConfiguration(abstract: "Prints block structure.")
 
@@ -62,40 +66,180 @@ struct Blocks: ParsableCommand {
     })
     var blockType: [UInt16]
 
+    @Flag(name: .shortAndLong, help: "Diffs with previous version of file (looking for files named <filename>_<NN>.<ext> and picking the one with largest number in NN part), then saves a new version using NN+1 if there are differences")
+    var diffAndSave: Bool = false
+
     mutating func run() throws {
+        try diffAndSave ? diffModeRun() : normalModeRun()
+    }
+
+    func diffModeRun() throws {
+        let projectFileUrl = URL(fileURLWithPath: projectFile)
+        let ext = projectFileUrl.pathExtension
+        let filenameBase = projectFileUrl.deletingPathExtension().lastPathComponent
+        let projectDirUrl = projectFileUrl.deletingLastPathComponent()
+        let regexForOlderVersionFilename = "\(filenameBase)_(\\d+)\\.\(ext)".r()
+        let olderVersionFiles = try FileManager.default.contentsOfDirectory(
+            at: projectDirUrl,
+            includingPropertiesForKeys: [],
+            options: .skipsSubdirectoryDescendants)
+            .compactMap { f in
+                regexForOlderVersionFilename.group(in: f.lastPathComponent, at: 1)
+                    .flatMap { UInt($0, radix: 10) }
+                    .map { ($0, f) }
+            }
+            .sorted(by: { $0.0 > $1.0 })
+
+        let ptfCurrent = try ProToolsFormat(path: projectFile)
+        var newVersion: UInt? = 1
+        if let (olderVer, olderVerFile) = olderVersionFiles[safe: 0] {
+            var ptfOlder = try ProToolsFormat(path: olderVerFile.path)
+            let initDifferent = ptfOlder.unxoredData() != ptfCurrent.unxoredData()
+            var different = initDifferent
+            if !different, let (_, evenOlderVerFile) = olderVersionFiles[safe: 1] {
+                ptfOlder = try ProToolsFormat(path: evenOlderVerFile.path)
+                different = ptfOlder.unxoredData() != ptfCurrent.unxoredData()
+            }
+            if different {
+                for (prevB, currB) in zipBlocksForDiff(prev: ptfOlder.blocks(), curr: ptfCurrent.blocks()) {
+                    printBlock(prevB, level: 0, filterType: Set(blockType), diffWith: currB)
+                }
+            }
+            newVersion = initDifferent ? olderVer + 1 : nil
+        }
+
+        if let newVerToSave = newVersion {
+            let newVerFmt = String(format: "%02d", newVerToSave)
+            let newVerUrl = projectDirUrl.appendingPathComponent("\(filenameBase)_\(newVerFmt).\(ext)")
+            try FileManager.default.copyItem(at: projectFileUrl, to: newVerUrl)
+        }
+    }
+
+    func normalModeRun() throws {
         let ptf = try ProToolsFormat(path: projectFile)
         for block in ptf.blocks() {
             printBlock(block, level: 0, filterType: Set(blockType))
         }
     }
 
-    func printBlock(_ b: PTBlock, level: Int, filterType: Set<UInt16>) {
+    func printBlock(_ b: PTBlock, level: Int, filterType: Set<UInt16>, diffWith b2Maybe: PTBlock? = nil) {
         if filterType.isEmpty || filterType.contains(b.contentType) {
-            printContents(of: b, level: level)
+            printContents(of: b, level: level, diffWith: b2Maybe)
         }
 
-        for child in b.children {
-            printBlock(child, level: level + 1, filterType: filterType)
+        if let b2 = b2Maybe {
+            for (childB, childB2) in zipBlocksForDiff(prev: b.children, curr: b2.children) {
+                printBlock(childB, level: level + 2, filterType: filterType, diffWith: childB2)
+            }
+        } else {
+            for child in b.children {
+                printBlock(child, level: level + 1, filterType: filterType)
+            }
         }
     }
 
-    func printContents(of b: PTBlock, level: Int) {
+    func printContents(of b: PTBlock, level: Int, diffWith b2Maybe: PTBlock? = nil) {
         let prefix = String(repeating: "    ", count: level)
-        let contentDesc = BlockContentType(rawValue: b.contentType).map { String(describing: $0) } ?? "Unknown"
 
-        print("\(prefix)\(contentDesc)(0x\(String(format: "%04x", b.contentType))) at \(b.offset)")
-        let byteGroup = 16
-        for offset in stride(from: 0, to: b.data.count, by: byteGroup) {
-            let end = min(offset + byteGroup, b.data.count)
-            print(prefix, terminator: "")
-            for i in offset..<end {
-                print(String(format: "%02x ", b.data[i]), terminator: "")
+        let contentDescB = description(of: b)
+        let groupedB = groupBytesForPrint(of: b)
+
+        if let b2 = b2Maybe {
+            printColored(str: "\(kDiffMinus)\(contentDescB)", colorCode: 31, newLine: true)
+            let contentDescB2 = description(of: b2)
+            printColored(str: "\(kDiffPlus)\(contentDescB2)", colorCode: 32, newLine: true)
+
+            let groupedB2 = groupBytesForPrint(of: b2)
+            for i in 0..<max(groupedB.count, groupedB2.count) {
+                printByteGroupForDiff(prev: groupedB[safe: i], curr: groupedB2[safe: i], prefix: prefix)
             }
-            for i in offset..<end {
+        } else {
+            print(contentDescB)
+            printBytesForNormalMode(from: groupedB, prefix: prefix)
+        }
+    }
+
+    func description(of b: PTBlock) -> String {
+        let contentDesc = BlockContentType(rawValue: b.contentType).map { String(describing: $0) } ?? "Unknown"
+        return "\(contentDesc)(0x\(String(format: "%04x", b.contentType))) at \(b.offset)"
+    }
+
+    func printBytesForNormalMode(from byteGroups: [[(String, String)]], prefix: String) {
+        for group in byteGroups {
+            printNonColored(byteGroup: group, prefix: prefix)
+        }
+    }
+
+    func printByteGroupForDiff(prev: [(String, String)]?, curr: [(String, String)]?, prefix: String) {
+        var differing: [Int]? = nil
+        if let g1 = prev, let g2 = curr {
+            differing = zip(g1, g2)
+                .enumerated()
+                .flatMap { (i, bytes) in bytes.0.0 != bytes.1.0 ? [i] : [] }
+        }
+        let areDifferent = differing == nil || differing.exists { !$0.isEmpty }
+
+        if let g1 = prev {
+            if areDifferent {
+                printColored(byteGroup: g1, prefix: kDiffMinus + prefix, highlightBytes: differing, colorCode: 31)
+            } else {
+                printNonColored(byteGroup: g1, prefix: "  " + prefix)
+            }
+        }
+        if let g2 = curr, areDifferent {
+            printColored(byteGroup: g2, prefix: kDiffPlus + prefix, highlightBytes: differing, colorCode: 32)
+        }
+    }
+
+    func printColored(byteGroup: [(String, String)], prefix: String, highlightBytes: [Int]? = nil, colorCode: Int) {
+        printColored(str: prefix, colorCode: colorCode)
+        let colorCodes = byteGroup.indices.map { (i) -> Int? in
+            if let highlightB = highlightBytes {
+                return highlightB.contains(i) ? colorCode : nil
+            }
+            return colorCode
+        }
+        let bytesColors = zip(byteGroup, colorCodes)
+        for (b, c) in bytesColors {
+            printColored(str: "\(b.0) ", colorCode: c)
+        }
+        for (b, c) in bytesColors {
+            printColored(str: b.1, colorCode: c)
+        }
+        printColored(str: "", newLine: true)
+    }
+
+    func printColored(str: String, colorCode: Int? = nil, newLine: Bool = false) {
+        print("\u{001B}[0;\(colorCode ?? 39)m\(str)\u{001B}[0;m", terminator: newLine ? "\n" : "")
+    }
+
+    func printNonColored(byteGroup group: [(String, String)], prefix: String) {
+        print(prefix, terminator: "")
+        for b in group {
+            print("\(b.0) ", terminator: "")
+        }
+        for b in group {
+            print(b.1, terminator: "")
+        }
+        print()
+    }
+
+    func groupBytesForPrint(of b: PTBlock) -> [[(String, String)]] {
+        stride(from: 0, to: b.data.count, by: kByteGroupsBy).map { offset in
+            let end = min(offset + kByteGroupsBy, b.data.count)
+            return (offset..<end).map { (i) -> (String, String) in
                 let byte = b.data[i]
-                print((byte > 32 && byte < 128) ? String(format: "%c", byte) : ".", terminator: "")
+                let hex = String(format: "%02x ", byte)
+                let txt = (byte > 32 && byte < 128) ? String(format: "%c", byte) : "."
+                return (hex, txt)
             }
-            print()
+        }
+    }
+
+    func zipBlocksForDiff(prev: [PTBlock], curr: [PTBlock]) -> [(PTBlock, PTBlock)] {
+        // some extremely naive implementation for now
+        zip(prev, curr).filter { (blockPrev, blockCurr) in
+            blockPrev.contentType == blockCurr.contentType
         }
     }
 }

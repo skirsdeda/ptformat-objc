@@ -36,9 +36,9 @@
 
 @end
 
-@implementation ProToolsFormat
-
-PTFFormat *object;
+@implementation ProToolsFormat {
+    PTFFormat *object;
+}
 
 + (instancetype) newWithPath:(NSString *)path error:(NSError **)error {
     return [[ProToolsFormat alloc] initWithPath:path error:error];
