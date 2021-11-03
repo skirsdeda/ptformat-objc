@@ -44,7 +44,26 @@ enum BlockContentType: UInt16 {
     case CompoundRegionMap = 0x262c
     case MidiRegionsNameNumberV10 = 0x2633
     case MidiRegionsMapV10 = 0x2634
+    case MetaDataBase64 = 0x2715
     case MarkerList = 0x271a
+}
+
+typealias BlockPostProcessor = (Data) -> Data?
+let blockPostProcessors: [BlockContentType: BlockPostProcessor] = [.MetaDataBase64: metaDataBase64Proc]
+
+let kMetaDataBase64HeaderOffset = 6
+let kMetaDataBase64Header = "sessionMetadataBase64"
+let metaDataBase64Proc: BlockPostProcessor = { data in
+    let dataLenOffset = kMetaDataBase64HeaderOffset + kMetaDataBase64Header.count
+    let header = String(data: data[kMetaDataBase64HeaderOffset..<dataLenOffset], encoding: .utf8)
+    if data.count < 32 || header != kMetaDataBase64Header {
+        return nil
+    }
+    let dataLen = data.advanced(by: dataLenOffset).withUnsafeBytes { $0.load(as: UInt32.self) }
+    let base64Data = data.advanced(by: dataLenOffset + 4)
+        .subdata(in: 0..<Data.Index(dataLen))
+        .filter { $0 != 0x0D && $0 != 0x0A }
+    return Data(base64Encoded: base64Data)
 }
 
 let kDiffMinus = "--"
@@ -66,7 +85,10 @@ struct Blocks: ParsableCommand {
     })
     var blockType: [UInt16]
 
-    @Flag(name: .shortAndLong, help: "Diffs with previous version of file (looking for files named <filename>_<NN>.<ext> and picking the one with largest number in NN part), then saves a new version using NN+1 if there are differences")
+    @Flag(name: .long, help: "Do not transform known block data.")
+    var noTransform: Bool = false
+
+    @Flag(name: .shortAndLong, help: "Diff with previous version of file (looking for files named <filename>_<NN>.<ext> and picking the one with largest number in NN part), then save a new version using NN+1 if there are differences.")
     var diffAndSave: Bool = false
 
     mutating func run() throws {
@@ -225,15 +247,24 @@ struct Blocks: ParsableCommand {
     }
 
     func groupBytesForPrint(of b: PTBlock) -> [[(String, String)]] {
-        stride(from: 0, to: b.data.count, by: kByteGroupsBy).map { offset in
-            let end = min(offset + kByteGroupsBy, b.data.count)
+        let data = blockData(b)
+        return stride(from: 0, to: data.count, by: kByteGroupsBy).map { offset in
+            let end = min(offset + kByteGroupsBy, data.count)
             return (offset..<end).map { (i) -> (String, String) in
-                let byte = b.data[i]
+                let byte = data[i]
                 let hex = String(format: "%02x ", byte)
                 let txt = (byte > 32 && byte < 128) ? String(format: "%c", byte) : "."
                 return (hex, txt)
             }
         }
+    }
+
+    func blockData(_ block: PTBlock) -> Data {
+        return noTransform
+        ? block.data
+        : BlockContentType(rawValue: block.contentType)
+            .flatMap { blockPostProcessors[$0] }
+            .flatMap { $0(block.data) } ?? block.data
     }
 
     func zipBlocksForDiff(prev: [PTBlock], curr: [PTBlock]) -> [(PTBlock, PTBlock)] {
