@@ -39,14 +39,29 @@
     [self metadataCheckFor:@"Untitled32" ofType:@"ptx" ver:12 sr:44100 bits:32];
 }
 
+- (void)testMetadataFields {
+    ProToolsFormat *ptFormat = [self loadAndCheck:@"MetadataFields" ofType:@"ptx"];
+    PTMetadata *meta = [ptFormat metadata];
+    XCTAssertEqualObjects([meta title], @"Title with some UTF8 ąčęėįšųūž");
+    XCTAssertEqualObjects([meta artist], @"AFKAAFKAP");
+    NSArray<NSString *> *expectContributors = @[ @"Prince", @"Foo", @"Buz" ];
+    XCTAssertEqualObjects([meta contributors], expectContributors);
+    XCTAssertEqualObjects([meta location], @"Paisley Park");
+}
+
 - (void)metadataCheckFor:(NSString*)path ofType:(NSString*)type ver:(uint8_t)ver sr:(int64_t)sr bits:(uint8_t)bits {
+    ProToolsFormat *ptFormat = [self loadAndCheck:path ofType:type];
+    XCTAssertEqual([ptFormat version], ver);
+    XCTAssertEqual([ptFormat sessionRate], sr);
+    XCTAssertEqual([ptFormat bitDepth], bits);
+}
+
+- (ProToolsFormat*)loadAndCheck:(NSString*)path ofType:(NSString*)type {
     NSError *error;
     ProToolsFormat *ptFormat = [self loadFromResource:path ofType:type error:&error];
     XCTAssertNotNil(ptFormat);
     XCTAssertNil(error);
-    XCTAssertEqual([ptFormat version], ver);
-    XCTAssertEqual([ptFormat sessionRate], sr);
-    XCTAssertEqual([ptFormat bitDepth], bits);
+    return ptFormat;
 }
 
 - (ProToolsFormat*)loadFromResource:(NSString*)path ofType:(NSString*)type error:(NSError**)error {

@@ -1,4 +1,4 @@
-// swift-tools-version:5.3
+// swift-tools-version:5.4
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -31,7 +31,7 @@ let package = Package(
             cSettings: [
                 .headerSearchPath(".")
             ]),
-        .target(
+        .executableTarget(
             name: "PtFormatTool",
             dependencies: ["PtFormatObjC", .product(name: "ArgumentParser", package: "swift-argument-parser")]),
         .testTarget(
@@ -40,5 +40,6 @@ let package = Package(
             resources: [
                 .copy("Resources")
             ]),
-    ]
+    ],
+    cxxLanguageStandard: .cxx20
 )

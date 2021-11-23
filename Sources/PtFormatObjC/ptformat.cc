@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2015-2019  Damien Zammit
  * Copyright (C) 2015-2019  Robin Gareus
+ * Copyright (C) 2021-      Tadas Dailyda
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -20,6 +21,7 @@
  *
  */
 
+#include <regex>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
@@ -49,6 +51,7 @@ PTFFormat::PTFFormat()
     , _sessionrate(0)
     , _version(0)
     , _product(NULL)
+    , _session_meta_base64(NULL)
     , is_bigendian(false)
 {
 }
@@ -149,6 +152,9 @@ PTFFormat::cleanup(void) {
     _ptfunxored = NULL;
     free (_product);
     _product = NULL;
+    free(_session_meta_base64);
+    _session_meta_base64 = NULL;
+    _session_meta_parsed = {};
     _audiofiles.clear();
     _regions.clear();
     _midiregions.clear();
@@ -221,12 +227,7 @@ PTFFormat::jumpback(uint32_t *currpos, unsigned char *buf, const uint32_t maxoff
 
 bool
 PTFFormat::foundin(std::string const& haystack, std::string const& needle) {
-    size_t found = haystack.find(needle);
-    if (found != std::string::npos) {
-        return true;
-    } else {
-        return false;
-    }
+    return haystack.find(needle) != std::string::npos;
 }
 
 /* Return values:
@@ -326,7 +327,7 @@ PTFFormat::load(std::string const& ptf) {
 
     int err = 0;
     if ((err = parse())) {
-        return err - 3; // -4, -5, -6, -7, -8
+        return err - 3; // -4, -5, -6, -7, -8, ...
     }
 
     return 0;
@@ -470,6 +471,8 @@ PTFFormat::parse(void) {
         return -4;
     if (!parsemidi())
         return -5;
+    if (!parsemetadata())
+        return -6;
     return 0;
 }
 
@@ -1116,4 +1119,139 @@ PTFFormat::parsemidi(void) {
         }
     }
     return true;
+}
+
+bool
+PTFFormat::parsemetadata(void) {
+    for (vector<PTFFormat::block_t>::iterator b = _blocks.begin();
+            b != _blocks.end(); ++b) {
+        if (b->content_type == 0x2716) {
+            for (vector<PTFFormat::block_t>::iterator c = b->child.begin(); c != b->child.end(); ++c) {
+                if (c->content_type == 0x2715) {
+                    if (parsemetadata_base64(*c)) {
+                        return parsemetadata_struct(_session_meta_base64, _session_meta_base64_size, NULL) != 0;
+                    }
+                    return false;
+                }
+            }
+        }
+    }
+    return true;
+}
+
+bool
+PTFFormat::parsemetadata_base64(block_t& blk) {
+    static const std::string BASE64_CHARS =
+             "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+             "abcdefghijklmnopqrstuvwxyz"
+             "0123456789+/";
+    static const int BASE64_GROUP_LEN = 64;
+    static const int BASE64_GROUP_LEN_W_PAD = BASE64_GROUP_LEN + 2;
+    static const int BYTES_IN = 4;
+    static const int BYTES_OUT = 3;
+
+    uint32_t pos = blk.offset + 2;
+    std::string meta_header = parsestring(pos);
+    if (!foundin(meta_header, std::string("sessionMetadataBase64"))) {
+        return false;
+    }
+    pos += 4 + meta_header.size();
+    // read base64 data length
+    uint32_t length_with_pad = u_endian_read4(&_ptfunxored[pos], is_bigendian);
+    pos += 4;
+    // base64 data is layed out in groups of 64 bytes padded by 2 bytes in-between
+    uint32_t whole_groups = length_with_pad / BASE64_GROUP_LEN_W_PAD;
+    uint32_t last_group_len = length_with_pad % BASE64_GROUP_LEN_W_PAD;
+    // last group length must be divisible by 4
+    if (last_group_len % BYTES_IN != 0) {
+        return false;
+    }
+    // expected decoded bytes length (might be shorter due to '=' padding at the end
+    uint32_t decoded_len = (whole_groups * BASE64_GROUP_LEN + last_group_len) / BYTES_IN * BYTES_OUT;
+    _session_meta_base64 = (unsigned char*) malloc(decoded_len * sizeof(unsigned char));
+    unsigned char enc_bytes[BYTES_IN], output_bytes[BYTES_OUT];
+
+    uint32_t end_pos = pos + length_with_pad;
+    uint32_t output_pos = 0; // track bytes actually decoded for final length
+    for (uint32_t p = pos; p < end_pos; p += BASE64_GROUP_LEN_W_PAD) {
+        for (uint32_t i = p; i < min(p + BASE64_GROUP_LEN, end_pos); i += BYTES_IN) {
+            int pad_found_at = BYTES_OUT + 1;
+            for (int j = 0; j < BYTES_IN; j++) {
+                unsigned char input_char = _ptfunxored[i + j];
+
+                if (input_char != '=') {
+                    enc_bytes[j] = BASE64_CHARS.find(input_char);
+                } else {
+                    enc_bytes[j] = 0;
+                    pad_found_at = j;
+                }
+            }
+
+            output_bytes[0] = (enc_bytes[0] << 2) + ((enc_bytes[1] & 0x30) >> 4);
+            output_bytes[1] = ((enc_bytes[1] & 0xf) << 4) + ((enc_bytes[2] & 0x3c) >> 2);
+            output_bytes[2] = ((enc_bytes[2] & 0x3) << 6) + enc_bytes[3];
+            for (int o = 0; o < min(BYTES_OUT, pad_found_at); o++) {
+                _session_meta_base64[output_pos] = output_bytes[o];
+                output_pos++;
+            }
+        }
+    }
+    _session_meta_base64_size = output_pos;
+    return true;
+}
+
+uint32_t
+PTFFormat::parsemetadata_struct(unsigned char* base64_data_base, uint32_t size, std::string const* outer_field) {
+    unsigned char* base64_data = base64_data_base;
+    uint32_t struct_head = u_endian_read4(base64_data, is_bigendian); // CONSTANT (1)
+    base64_data += 4;
+    if (struct_head != 1) {
+        return 0;
+    }
+    uint32_t field_count = u_endian_read4(base64_data, is_bigendian);
+    base64_data += 4;
+    for (int f = 0; f < field_count; f++) {
+        uint32_t field_name_len = u_endian_read4(base64_data, is_bigendian);
+        base64_data += 4;
+        std::string field = std::regex_replace(std::string((const char *)base64_data, field_name_len), std::regex("\t"), "/");
+        base64_data += field_name_len;
+        uint32_t field_type = u_endian_read4(base64_data, is_bigendian);
+        base64_data += 4;
+        if (field_type == 0) {
+            // simple string value
+            uint32_t value_len = u_endian_read4(base64_data, is_bigendian);
+            base64_data += 4;
+            std::string value = std::string((const char *)base64_data, value_len);
+            base64_data += value_len;
+
+            fill_metadata_field(outer_field != NULL ? *outer_field : field, value);
+        } else if (field_type == 3) {
+            // nested struct
+            uint32_t pos = base64_data - base64_data_base;
+            uint32_t bytes_inner_read = parsemetadata_struct(base64_data, size - pos, &field);
+            if (bytes_inner_read == 0) {
+                return 0;
+            }
+            base64_data += bytes_inner_read;
+        }
+    }
+    return base64_data - base64_data_base;
+}
+
+void
+PTFFormat::fill_metadata_field(std::string const& field, std::string const& value) {
+    static const std::string FIELD_TITLE = "http://purl.org/dc/elements/1.1/:title";
+    static const std::string FIELD_ARTIST = "http://www.id3.org/id3v2.3.0#:TPE1";
+    static const std::string FIELD_CONTRIBUTORS = "http://purl.org/dc/elements/1.1/:contributor";
+    static const std::string FIELD_LOCATION = "http://meta.avid.com/everywhere/1.0#:location";
+
+    if (field == FIELD_TITLE) {
+        _session_meta_parsed.title = value;
+    } else if (field == FIELD_ARTIST) {
+        _session_meta_parsed.artist = value;
+    } else if (field == FIELD_CONTRIBUTORS) {
+        _session_meta_parsed.contributors.push_back(value);
+    } else if (field == FIELD_LOCATION) {
+        _session_meta_parsed.location = value;
+    }
 }

@@ -36,6 +36,23 @@
 
 @end
 
+@interface PTMetadata()
++ (instancetype) metaWithTitle:(NSString *)title artist:(NSString *) artist contributors:(NSArray<NSString *> *)contributors
+                      location:(NSString *)location;
+@end
+
+@implementation PTMetadata
++ (instancetype) metaWithTitle:(NSString *)title artist:(NSString *) artist contributors:(NSArray<NSString *> *)contributors
+                      location:(NSString *)location {
+    PTMetadata *ptMeta = [[PTMetadata alloc] init];
+    ptMeta->_title = title;
+    ptMeta->_artist = artist;
+    ptMeta->_contributors = contributors;
+    ptMeta->_location = location;
+    return ptMeta;
+}
+@end
+
 @implementation ProToolsFormat {
     PTFFormat *object;
 }
@@ -86,6 +103,35 @@
 
 - (NSData *) unxoredData {
     return [[NSData alloc] initWithBytes:object->unxored_data() length:object->unxored_size()];
+}
+
+- (nullable NSData *) metadataBase64 {
+    const unsigned char *data = object->metadata_base64();
+    if (data == NULL) {
+        return nil;
+    }
+    return [[NSData alloc] initWithBytes:object->metadata_base64() length:object->metadata_base64_size()];
+}
+
+- (nonnull PTMetadata *) metadata {
+    const PTFFormat::metadata_t meta = object->metadata();
+    NSString *title, *artist, *location;
+    NSMutableArray<NSString *> *contributors = [NSMutableArray arrayWithCapacity:meta.contributors.size()];
+
+    if (!meta.title.empty()) {
+        title = [NSString stringWithUTF8String:meta.title.c_str()];
+    }
+    if (!meta.artist.empty()) {
+        artist = [NSString stringWithUTF8String:meta.artist.c_str()];
+    }
+    if (!meta.location.empty()) {
+        location = [NSString stringWithUTF8String:meta.location.c_str()];
+    }
+    for (int i = 0; i < meta.contributors.size(); ++i) {
+        [contributors addObject:[NSString stringWithUTF8String:meta.contributors[i].c_str()]];
+    }
+
+    return [PTMetadata metaWithTitle:title artist:artist contributors:contributors location:location];
 }
 
 - (NSArray<PTBlock *> *) blocks {

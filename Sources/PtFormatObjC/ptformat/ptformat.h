@@ -121,6 +121,13 @@ public:
         track_t (uint16_t idx = 0) : index (idx), playlist (0) {}
     };
 
+    struct metadata_t {
+        std::string title;
+        std::string artist;
+        std::vector<std::string> contributors;
+        std::string location;
+    };
+
     bool find_track(uint16_t index, track_t& tt) const {
         std::vector<track_t>::const_iterator begin = _tracks.begin();
         std::vector<track_t>::const_iterator finish = _tracks.end();
@@ -231,6 +238,10 @@ public:
     const unsigned char* unxored_data () const { return _ptfunxored; }
     uint64_t             unxored_size () const { return _len; }
 
+    const unsigned char* metadata_base64 () const { return _session_meta_base64; }
+    uint32_t             metadata_base64_size () const { return _session_meta_base64_size; }
+    const metadata_t&    metadata () const { return _session_meta_parsed; }
+
 private:
 
     std::vector<wav_t>    _audiofiles;
@@ -238,6 +249,9 @@ private:
     std::vector<region_t> _midiregions;
     std::vector<track_t>  _tracks;
     std::vector<track_t>  _miditracks;
+    unsigned char* _session_meta_base64;
+    uint32_t _session_meta_base64_size;
+    metadata_t _session_meta_parsed;
 
     std::string _path;
 
@@ -263,6 +277,10 @@ private:
     bool parserest(void);
     bool parseaudio(void);
     bool parsemidi(void);
+    bool parsemetadata(void);
+    bool parsemetadata_base64(block_t& blk);
+    uint32_t parsemetadata_struct(unsigned char* base64_data, uint32_t size, std::string const* outer_field);
+    void fill_metadata_field(std::string const& field, std::string const& value);
     void dump(void);
     bool parse_block_at(uint32_t pos, struct block_t *b, struct block_t *parent, int level);
     void dump_block(struct block_t& b, int level);
