@@ -83,7 +83,7 @@ struct Blocks: ParsableCommand {
         }
         return cType
     })
-    var blockType: [UInt16]
+    var blockType: [UInt16] = []
 
     @Flag(name: .long, help: "Do not transform known block data.")
     var noTransform: Bool = false
@@ -145,7 +145,11 @@ struct Blocks: ParsableCommand {
     }
 
     func printBlock(_ b: PTBlock, level: Int, filterType: Set<UInt16>, diffWith b2Maybe: PTBlock? = nil) {
-        if filterType.isEmpty || filterType.contains(b.contentType) {
+        // only print contents if:
+        // 1) not diffing OR data is different
+        // OR
+        // 2) not filtering OR block type in filtered block types
+        if !b2Maybe.exists({ $0.data == b.data }) && (filterType.isEmpty || filterType.contains(b.contentType)) {
             printContents(of: b, level: level, diffWith: b2Maybe)
         }
 
