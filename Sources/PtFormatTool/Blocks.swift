@@ -46,6 +46,9 @@ enum BlockContentType: UInt16 {
     case MidiRegionsMapV10 = 0x2634
     case MetaDataBase64 = 0x2715
     case MarkerList = 0x271a
+    case TempoMap = 0x2028
+    case TimeSignatureMap = 0x2029
+    case KeySignature = 0x2432
 }
 
 typealias BlockPostProcessor = (Data) -> Data?
@@ -64,6 +67,26 @@ let metaDataBase64Proc: BlockPostProcessor = { data in
         .subdata(in: 0..<Data.Index(dataLen))
         .filter { $0 != 0x0D && $0 != 0x0A }
     return Data(base64Encoded: base64Data)
+}
+
+typealias BlockGrouping = (Data) -> AnySequence<Int>?
+let blockGroupings: [BlockContentType: BlockGrouping] = [
+    .TempoMap: groupByEvents(headerSize: 17, eventSize: 61),
+    .TimeSignatureMap: groupByEvents(headerSize: 17, eventSize: 36),
+]
+
+func groupByEvents(headerSize: Int, eventSize: Int) -> BlockGrouping {
+    return { data in
+        if data.count < headerSize {
+            return nil
+        }
+        let evCount = Int(data.advanced(by: headerSize - 4).withUnsafeBytes { $0.load(as: UInt32.self) })
+        if data.count < headerSize + evCount * eventSize {
+            return nil
+        }
+        return AnySequence(
+            stride(from: headerSize, through: headerSize + eventSize * evCount, by: eventSize))
+        }
 }
 
 let kDiffMinus = "--"
@@ -187,7 +210,8 @@ struct Blocks: ParsableCommand {
 
     func description(of b: PTBlock) -> String {
         let contentDesc = BlockContentType(rawValue: b.contentType).map { String(describing: $0) } ?? "Unknown"
-        return "\(contentDesc)(0x\(String(format: "%04x", b.contentType))) at \(b.offset)"
+        let end = UInt(b.offset) + UInt(b.data.count)
+        return "\(contentDesc)(0x\(String(format: "%04x", b.contentType))) at \(b.offset)-\(end) (\(b.data.count) bytes)"
     }
 
     func printBytesForNormalMode(from byteGroups: [[(String, String)]], prefix: String) {
@@ -251,9 +275,9 @@ struct Blocks: ParsableCommand {
     }
 
     func groupBytesForPrint(of b: PTBlock) -> [[(String, String)]] {
-        let data = blockData(b)
-        return stride(from: 0, to: data.count, by: kByteGroupsBy).map { offset in
-            let end = min(offset + kByteGroupsBy, data.count)
+        let (data, grouping) = groupedBytes(for: b)
+        return grouping.enumerated().map { (idx, offset) in
+            let end = idx == grouping.count - 1 ? data.count : grouping[idx + 1]
             return (offset..<end).map { (i) -> (String, String) in
                 let byte = data[i]
                 let hex = String(format: "%02x ", byte)
@@ -261,6 +285,26 @@ struct Blocks: ParsableCommand {
                 return (hex, txt)
             }
         }
+    }
+
+    func groupedBytes(for block: PTBlock) -> (Data, [Int]) {
+        let data = blockData(block)
+        let maybeGrouping = BlockContentType(rawValue: block.contentType)
+            .flatMap { blockGroupings[$0] }
+            .flatMap { $0(data) }
+        if let baseGrouping = maybeGrouping, baseGrouping.underestimatedCount > 0 {
+            var grouping = Array(baseGrouping)
+            let firstOffset = grouping[0]
+            let lastOffset = grouping[grouping.count - 1]
+            if firstOffset != 0 {
+                grouping = stride(from: 0, to: firstOffset, by: kByteGroupsBy) + grouping
+            }
+            if lastOffset < data.count - 1 - kByteGroupsBy {
+                grouping = grouping + stride(from: lastOffset + kByteGroupsBy, to: data.count, by: kByteGroupsBy)
+            }
+            return (data, grouping)
+        }
+        return (data, Array(stride(from: 0, to: data.count, by: kByteGroupsBy)))
     }
 
     func blockData(_ block: PTBlock) -> Data {
