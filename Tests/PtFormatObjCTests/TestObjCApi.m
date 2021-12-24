@@ -54,6 +54,9 @@
     XCTAssertEqual([ptFormat version], ver);
     XCTAssertEqual([ptFormat sessionRate], sr);
     XCTAssertEqual([ptFormat bitDepth], bits);
+//    PTKeySignature *keySig = [PTKeySignature keySigWithPos: 1000000000000u isMajor: YES isSharp: YES signs: 0];
+//    PTKeySignature *actualKeySig = [[ptFormat keySignatures] firstObject];
+//    XCTAssertEqualObjects([ptFormat keySignatures], @[keySig]);
 }
 
 - (ProToolsFormat*)loadAndCheck:(NSString*)path ofType:(NSString*)type {
@@ -87,6 +90,34 @@
     XCTAssertNotNil(ptFormat2);
     XCTAssertNil(error);
     XCTAssertEqualObjects([ptFormat1 unxoredData], [ptFormat2 unxoredData]);
+}
+
+- (void)testTempoTimeSigKeySig {
+    NSError *error;
+    ProToolsFormat *ptFormat = [self loadFromResource:@"TempoTimeKeySig" ofType:@"ptx" error:&error];
+    XCTAssertNotNil(ptFormat);
+    XCTAssertNil(error);
+
+    NSArray<PTKeySignature *> *keySigsActual = [ptFormat keySignatures];
+    NSArray<PTKeySignature *> *keySigsExpected = @[
+        [PTKeySignature keySigWithPos: 1000000000000u isMajor: YES isSharp: YES signs: 6],
+        [PTKeySignature keySigWithPos: 1000003840000u isMajor: YES isSharp: NO signs: 1],
+        [PTKeySignature keySigWithPos: 1000005760000u isMajor: NO isSharp: NO signs: 5],
+        [PTKeySignature keySigWithPos: 1000008640000u isMajor: NO isSharp: YES signs: 0],
+        [PTKeySignature keySigWithPos: 1000011520000u isMajor: NO isSharp: YES signs: 1],
+        [PTKeySignature keySigWithPos: 1000014400000u isMajor: NO isSharp: YES signs: 2],
+        [PTKeySignature keySigWithPos: 1000017280000u isMajor: NO isSharp: YES signs: 3],
+        [PTKeySignature keySigWithPos: 1000020160000u isMajor: NO isSharp: YES signs: 4],
+        [PTKeySignature keySigWithPos: 1000023040000u isMajor: NO isSharp: YES signs: 5],
+        [PTKeySignature keySigWithPos: 1000025920000u isMajor: NO isSharp: YES signs: 6],
+        [PTKeySignature keySigWithPos: 1000028800000u isMajor: NO isSharp: YES signs: 7],
+        [PTKeySignature keySigWithPos: 1028169760000u isMajor: NO isSharp: NO signs: 1],
+        [PTKeySignature keySigWithPos: 1137353440000u isMajor: NO isSharp: NO signs: 4],
+        [PTKeySignature keySigWithPos: 1164747040000u isMajor: NO isSharp: YES signs: 5],
+        [PTKeySignature keySigWithPos: 1183007200000u isMajor: NO isSharp: YES signs: 6]
+    ];
+
+    XCTAssertEqualObjects(keySigsActual, keySigsExpected);
 }
 
 @end

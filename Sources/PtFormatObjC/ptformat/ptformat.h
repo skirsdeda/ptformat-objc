@@ -39,7 +39,13 @@ public:
         -1    error decrypting pt session
         -2    error detecting pt session
         -3    incompatible pt version
-        -4    error parsing pt session
+        -4    error parsing header
+        -5    error parsing session rate
+        -6    error parsing audio
+        -7    error parsing region/track info
+        -8    error parsing midi
+        -9    error parsing metadata
+        -10   error parsing key signatures
     */
     int load(std::string const& path);
 
@@ -126,6 +132,13 @@ public:
         std::string artist;
         std::vector<std::string> contributors;
         std::string location;
+    };
+
+    struct key_signature_t {
+        uint64_t pos;
+        bool     is_major; // otherwise - minor
+        bool     is_sharp; // otherwise - flat
+        uint8_t  sign_count; // how many alteration signs
     };
 
     bool find_track(uint16_t index, track_t& tt) const {
@@ -234,6 +247,7 @@ public:
     const std::vector<region_t>& midiregions () const { return _midiregions ; }
     const std::vector<track_t>&  tracks () const { return _tracks ; }
     const std::vector<track_t>&  miditracks () const { return _miditracks ; }
+    const std::vector<key_signature_t>& keysignatures () const { return _keysignatures ; }
 
     const unsigned char* unxored_data () const { return _ptfunxored; }
     uint64_t             unxored_size () const { return _len; }
@@ -249,6 +263,7 @@ private:
     std::vector<region_t> _midiregions;
     std::vector<track_t>  _tracks;
     std::vector<track_t>  _miditracks;
+    std::vector<key_signature_t> _keysignatures;
     unsigned char* _session_meta_base64;
     uint32_t _session_meta_base64_size;
     metadata_t _session_meta_parsed;
@@ -281,6 +296,8 @@ private:
     bool parsemetadata_base64(block_t& blk);
     uint32_t parsemetadata_struct(unsigned char* base64_data, uint32_t size, std::string const* outer_field);
     void fill_metadata_field(std::string const& field, std::string const& value);
+    bool parsekeysigs(void);
+    bool parsekeysig(block_t& blk);
     void dump(void);
     bool parse_block_at(uint32_t pos, struct block_t *b, struct block_t *parent, int level);
     void dump_block(struct block_t& b, int level);

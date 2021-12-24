@@ -53,6 +53,32 @@
 }
 @end
 
+@implementation PTKeySignature
++ (instancetype) keySigWithPos:(uint64_t)pos isMajor:(BOOL)isMajor isSharp:(BOOL)isSharp signs:(uint8_t)signs {
+    PTKeySignature *ptKeySig = [[PTKeySignature alloc] init];
+    ptKeySig->_pos = pos;
+    ptKeySig->_isMajor = isMajor;
+    ptKeySig->_isSharp = isSharp;
+    ptKeySig->_signs = signs;
+    return ptKeySig;
+}
+
+- (BOOL)isEqual:(id)other {
+    if (other == self)
+        return YES;
+    if (!other || ![other isKindOfClass:[self class]])
+        return NO;
+    return [self isEqualToKeySignature:other];
+}
+
+- (BOOL)isEqualToKeySignature:(PTKeySignature *)keySig {
+    if (self == keySig)
+        return YES;
+    return (self->_pos == keySig->_pos && self->_isMajor == keySig->_isMajor &&
+            self->_isSharp == keySig->_isSharp && self->_signs == keySig->_signs);
+}
+@end
+
 @implementation ProToolsFormat {
     PTFFormat *object;
 }
@@ -134,7 +160,17 @@
     return [PTMetadata metaWithTitle:title artist:artist contributors:contributors location:location];
 }
 
-- (NSArray<PTBlock *> *) blocks {
+- (nonnull NSArray<PTKeySignature *> *) keySignatures {
+    std::vector<PTFFormat::key_signature_t> keySigsSrc = object->keysignatures();
+    PTKeySignature *keySigs[keySigsSrc.size()];
+    for (int i = 0; i < keySigsSrc.size(); i++) {
+        PTFFormat::key_signature_t k = keySigsSrc[i];
+        keySigs[i] = [PTKeySignature keySigWithPos:k.pos isMajor:k.is_major isSharp:k.is_sharp signs:k.sign_count];
+    }
+    return [[NSArray alloc] initWithObjects:keySigs count:keySigsSrc.size()];
+}
+
+- (nonnull NSArray<PTBlock *> *) blocks {
     return [PTBlock arrayFromVector:object->blocks() unxored:object->unxored_data()];
 }
 

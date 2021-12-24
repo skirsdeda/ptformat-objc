@@ -49,6 +49,7 @@ enum BlockContentType: UInt16 {
     case TempoMap = 0x2028
     case TimeSignatureMap = 0x2029
     case KeySignature = 0x2432
+    case KeySignatureWrapper = 0x2433
 }
 
 typealias BlockPostProcessor = (Data) -> Data?

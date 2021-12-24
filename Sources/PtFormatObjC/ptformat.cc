@@ -160,6 +160,7 @@ PTFFormat::cleanup(void) {
     _midiregions.clear();
     _tracks.clear();
     _miditracks.clear();
+    _keysignatures.clear();
     free_all_blocks();
 }
 
@@ -309,7 +310,13 @@ PTFFormat::unxor(std::string const& path) {
    -1    error decrypting pt session
    -2    error detecting pt session
    -3    incompatible pt version
-   -4    error parsing pt session
+   -4    error parsing header
+   -5    error parsing session rate
+   -6    error parsing audio
+   -7    error parsing region/track info
+   -8    error parsing midi
+   -9    error parsing metadata
+   -10   error parsing key signatures
 */
 int
 PTFFormat::load(std::string const& ptf) {
@@ -473,6 +480,8 @@ PTFFormat::parse(void) {
         return -5;
     if (!parsemetadata())
         return -6;
+    if (!parsekeysigs())
+        return -7;
     return 0;
 }
 
@@ -1254,4 +1263,40 @@ PTFFormat::fill_metadata_field(std::string const& field, std::string const& valu
     } else if (field == FIELD_LOCATION) {
         _session_meta_parsed.location = value;
     }
+}
+
+bool
+PTFFormat::parsekeysigs() {
+    for (vector<PTFFormat::block_t>::iterator b = _blocks.begin(); b != _blocks.end(); ++b) {
+        if (b->content_type == 0x2433) {
+            for (vector<PTFFormat::block_t>::iterator c = b->child.begin(); c != b->child.end(); ++c) {
+                if (c->content_type == 0x2432) {
+                    if (!parsekeysig(*c))
+                        return false;
+                }
+            }
+        }
+    }
+    return true;
+}
+
+bool
+PTFFormat::parsekeysig(block_t& blk) {
+    if (blk.block_size < 13)
+        return false;
+
+    uint8_t *data = &_ptfunxored[blk.offset];
+    data += 2;
+    uint64_t pos = u_endian_read8(data, is_bigendian);
+    data += 8;
+    uint8_t is_major = *data++;
+    uint8_t is_sharp = *data++;
+    uint8_t signs = *data;
+
+    if (is_major > 1 || is_sharp > 1 || signs > 7)
+        return false;
+
+    key_signature_t parsed_sig = key_signature_t { pos, (bool)is_major, (bool)is_sharp, signs };
+    _keysignatures.push_back(parsed_sig);
+    return true;
 }
