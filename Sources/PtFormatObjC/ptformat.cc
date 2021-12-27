@@ -27,6 +27,7 @@
 #include <string>
 #include <string.h>
 #include <assert.h>
+#include <cmath>
 
 #ifdef HAVE_GLIB
 # include <glib/gstdio.h>
@@ -482,6 +483,8 @@ PTFFormat::parse(void) {
         return -6;
     if (!parsekeysigs())
         return -7;
+    if (!parsetimesigs())
+        return -8;
     return 0;
 }
 
@@ -1298,5 +1301,49 @@ PTFFormat::parsekeysig(block_t& blk) {
 
     key_signature_t parsed_sig = key_signature_t { pos, (bool)is_major, (bool)is_sharp, signs };
     _keysignatures.push_back(parsed_sig);
+    return true;
+}
+
+bool
+PTFFormat::parsetimesigs() {
+    for (vector<PTFFormat::block_t>::iterator b = _blocks.begin(); b != _blocks.end(); ++b) {
+        if (b->content_type == 0x2029) {
+            return parsetimesigs_block(*b);
+        }
+    }
+    return true;
+}
+
+bool
+PTFFormat::parsetimesigs_block(block_t &blk) {
+    static const uint32_t HEADER_SIZE = 17;
+    static const uint32_t EV_SIZE = 36;
+
+    if (blk.block_size < HEADER_SIZE)
+        return false;
+    uint8_t *data = &_ptfunxored[blk.offset];
+    data += 13;
+    uint32_t event_count = u_endian_read4(data, is_bigendian);
+    data += 4;
+    if (blk.block_size < HEADER_SIZE + event_count * EV_SIZE)
+        return false;
+
+    for (int i = 0; i < event_count; i++) {
+        uint64_t pos = u_endian_read8(data, is_bigendian);
+        data += 8;
+        uint32_t measure_num = u_endian_read4(data, is_bigendian);
+        data += 4;
+        uint32_t nom = u_endian_read4(data, is_bigendian);
+        data += 4;
+        uint32_t denom = u_endian_read4(data, is_bigendian);
+        data += 4 + 16; // 16 trailing bytes
+
+        // check that nom and denom are non-zero and are in range, check that denom is power of 2
+        if (nom == 0 || denom == 0 || nom > 255 || denom > 255 || floor(log2(denom)) != ceil(log2(denom)))
+            return false;
+
+        time_signature_t parsed_sig = time_signature_t { pos, measure_num, (uint8_t)nom, (uint8_t)denom };
+        _timesignatures.push_back(parsed_sig);
+    }
     return true;
 }

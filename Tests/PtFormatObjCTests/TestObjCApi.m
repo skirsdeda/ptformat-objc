@@ -54,9 +54,8 @@
     XCTAssertEqual([ptFormat version], ver);
     XCTAssertEqual([ptFormat sessionRate], sr);
     XCTAssertEqual([ptFormat bitDepth], bits);
-//    PTKeySignature *keySig = [PTKeySignature keySigWithPos: 1000000000000u isMajor: YES isSharp: YES signs: 0];
-//    PTKeySignature *actualKeySig = [[ptFormat keySignatures] firstObject];
-//    XCTAssertEqualObjects([ptFormat keySignatures], @[keySig]);
+    XCTAssertEqual([[ptFormat keySignatures] count], 0);
+    XCTAssertEqual([[ptFormat timeSignatures] count], 0);
 }
 
 - (ProToolsFormat*)loadAndCheck:(NSString*)path ofType:(NSString*)type {
@@ -118,6 +117,21 @@
     ];
 
     XCTAssertEqualObjects(keySigsActual, keySigsExpected);
+
+    NSArray<PTTimeSignature *> *timeSigsActual = [ptFormat timeSignatures];
+    NSArray<PTTimeSignature *> *timeSigsExpected = @[
+        [PTTimeSignature timeSigWithPos: 1000000000000u measureNum: 1 nom: 4 denom: 4],
+        [PTTimeSignature timeSigWithPos: 1000003840000u measureNum: 2 nom: 2 denom: 4],
+        [PTTimeSignature timeSigWithPos: 1000005760000u measureNum: 3 nom: 3 denom: 4],
+        [PTTimeSignature timeSigWithPos: 1007474080000u measureNum: 2597 nom: 3 denom: 4],
+        [PTTimeSignature timeSigWithPos: 1050311200000u measureNum: 17471 nom: 2 denom: 4],
+        [PTTimeSignature timeSigWithPos: 1191832480000u measureNum: 91180 nom: 3 denom: 8],
+        [PTTimeSignature timeSigWithPos: 1191833920000u measureNum: 91181 nom: 5 denom: 2],
+        [PTTimeSignature timeSigWithPos: 1191843520000u measureNum: 91182 nom: 6 denom: 16],
+        [PTTimeSignature timeSigWithPos: 1191844960000u measureNum: 91183 nom: 2 denom: 4]
+    ];
+
+    XCTAssertEqualObjects(timeSigsActual, timeSigsExpected);
 }
 
 @end

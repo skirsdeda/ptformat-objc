@@ -79,6 +79,32 @@
 }
 @end
 
+@implementation PTTimeSignature
++ (nonnull instancetype) timeSigWithPos:(uint64_t)pos measureNum:(uint32_t)measureNum nom:(uint8_t)nom denom:(uint8_t)denom {
+    PTTimeSignature *ptTimeSig = [[PTTimeSignature alloc] init];
+    ptTimeSig->_pos = pos;
+    ptTimeSig->_measureNum = measureNum;
+    ptTimeSig->_nom = nom;
+    ptTimeSig->_denom = denom;
+    return ptTimeSig;
+}
+
+- (BOOL)isEqual:(id)other {
+    if (other == self)
+        return YES;
+    if (!other || ![other isKindOfClass:[self class]])
+        return NO;
+    return [self isEqualToTimeSignature:other];
+}
+
+- (BOOL)isEqualToTimeSignature:(PTTimeSignature *)timeSig {
+    if (self == timeSig)
+        return YES;
+    return (self->_pos == timeSig->_pos && self->_measureNum == timeSig->_measureNum &&
+            self->_nom == timeSig->_nom && self->_denom == timeSig->_denom);
+}
+@end
+
 @implementation ProToolsFormat {
     PTFFormat *object;
 }
@@ -168,6 +194,16 @@
         keySigs[i] = [PTKeySignature keySigWithPos:k.pos isMajor:k.is_major isSharp:k.is_sharp signs:k.sign_count];
     }
     return [[NSArray alloc] initWithObjects:keySigs count:keySigsSrc.size()];
+}
+
+- (nonnull NSArray<PTTimeSignature *> *) timeSignatures {
+    std::vector<PTFFormat::time_signature_t> timeSigsSrc = object->timesignatures();
+    PTTimeSignature *timeSigs[timeSigsSrc.size()];
+    for (int i = 0; i < timeSigsSrc.size(); i++) {
+        PTFFormat::time_signature_t t = timeSigsSrc[i];
+        timeSigs[i] = [PTTimeSignature timeSigWithPos:t.pos measureNum:t.measure_num nom:t.nominator denom:t.denominator];
+    }
+    return [[NSArray alloc] initWithObjects:timeSigs count:timeSigsSrc.size()];
 }
 
 - (nonnull NSArray<PTBlock *> *) blocks {

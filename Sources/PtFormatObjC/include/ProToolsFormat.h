@@ -38,6 +38,16 @@
 @property (nonatomic, readonly) uint8_t signs;
 @end
 
+@interface PTTimeSignature : NSObject
++ (nonnull instancetype) new NS_UNAVAILABLE;
++ (nonnull instancetype) timeSigWithPos:(uint64_t)pos measureNum:(uint32_t)measureNum nom:(uint8_t)nom denom:(uint8_t)denom;
+- (nonnull instancetype) init NS_UNAVAILABLE;
+@property (nonatomic, readonly) uint64_t pos;
+@property (nonatomic, readonly) uint32_t measureNum;
+@property (nonatomic, readonly) uint8_t nom;
+@property (nonatomic, readonly) uint8_t denom;
+@end
+
 @interface ProToolsFormat : NSObject
 + (nonnull instancetype) new NS_UNAVAILABLE;
 + (nullable instancetype) newWithPath:(nonnull NSString *)path error:(NSError * _Nullable * _Nullable)error;
@@ -51,6 +61,7 @@
 - (nullable NSData *) metadataBase64;
 - (nonnull PTMetadata *) metadata;
 - (nonnull NSArray<PTKeySignature *> *) keySignatures;
+- (nonnull NSArray<PTTimeSignature *> *) timeSignatures;
 - (nonnull NSArray<PTBlock *> *) blocks;
 @end
 
