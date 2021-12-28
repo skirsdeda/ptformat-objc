@@ -47,7 +47,9 @@ enum BlockContentType: UInt16 {
     case MetaDataBase64 = 0x2715
     case MarkerList = 0x271a
     case TempoMap = 0x2028
+    case TempoMapWrapper = 0x2718
     case TimeSignatureMap = 0x2029
+    case TimeSignatureMapWrapper = 0x2719
     case KeySignature = 0x2432
     case KeySignatureWrapper = 0x2433
 }
@@ -76,12 +78,12 @@ let blockGroupings: [BlockContentType: BlockGrouping] = [
     .TimeSignatureMap: groupByEvents(headerSize: 17, eventSize: 36),
 ]
 
-func groupByEvents(headerSize: Int, eventSize: Int) -> BlockGrouping {
+func groupByEvents(headerSize: Int, eventSize: Int, eventCountOffset: Int = -4) -> BlockGrouping {
     return { data in
         if data.count < headerSize {
             return nil
         }
-        let evCount = Int(data.advanced(by: headerSize - 4).withUnsafeBytes { $0.load(as: UInt32.self) })
+        let evCount = Int(data.advanced(by: headerSize + eventCountOffset).withUnsafeBytes { $0.load(as: UInt32.self) })
         if data.count < headerSize + evCount * eventSize {
             return nil
         }

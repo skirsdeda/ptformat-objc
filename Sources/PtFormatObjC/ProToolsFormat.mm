@@ -105,6 +105,31 @@
 }
 @end
 
+@implementation PTTempoChange
++ (nonnull instancetype) tempoChangeWithPos:(uint64_t)pos tempo:(double)tempo beatLength:(uint64_t)beatLength {
+    PTTempoChange *ptTempoChange = [[PTTempoChange alloc] init];
+    ptTempoChange->_pos = pos;
+    ptTempoChange->_tempo = tempo;
+    ptTempoChange->_beatLength = beatLength;
+    return ptTempoChange;
+}
+
+- (BOOL)isEqual:(id)other {
+    if (other == self)
+        return YES;
+    if (!other || ![other isKindOfClass:[self class]])
+        return NO;
+    return [self isEqualToTempoChange:other];
+}
+
+- (BOOL)isEqualToTempoChange:(PTTempoChange *)tempoChange {
+    if (self == tempoChange)
+        return YES;
+    return (self->_pos == tempoChange->_pos && self->_tempo == tempoChange->_tempo &&
+            self->_beatLength == tempoChange->_beatLength);
+}
+@end
+
 @implementation ProToolsFormat {
     PTFFormat *object;
 }
@@ -204,6 +229,16 @@
         timeSigs[i] = [PTTimeSignature timeSigWithPos:t.pos measureNum:t.measure_num nom:t.nominator denom:t.denominator];
     }
     return [[NSArray alloc] initWithObjects:timeSigs count:timeSigsSrc.size()];
+}
+
+- (nonnull NSArray<PTTempoChange *> *) tempoChanges {
+    std::vector<PTFFormat::tempo_change_t> tempoChangesSrc = object->tempochanges();
+    PTTempoChange *tempoChanges[tempoChangesSrc.size()];
+    for (int i = 0; i < tempoChangesSrc.size(); i++) {
+        PTFFormat::tempo_change_t t = tempoChangesSrc[i];
+        tempoChanges[i] = [PTTempoChange tempoChangeWithPos:t.pos tempo:t.tempo beatLength:t.beat_len];
+    }
+    return [[NSArray alloc] initWithObjects:tempoChanges count:tempoChangesSrc.size()];
 }
 
 - (nonnull NSArray<PTBlock *> *) blocks {

@@ -162,6 +162,8 @@ PTFFormat::cleanup(void) {
     _tracks.clear();
     _miditracks.clear();
     _keysignatures.clear();
+    _timesignatures.clear();
+    _tempochanges.clear();
     free_all_blocks();
 }
 
@@ -318,6 +320,8 @@ PTFFormat::unxor(std::string const& path) {
    -8    error parsing midi
    -9    error parsing metadata
    -10   error parsing key signatures
+   -11   error parsing time signatures
+   -12   error parsing tempo changes
 */
 int
 PTFFormat::load(std::string const& ptf) {
@@ -485,6 +489,8 @@ PTFFormat::parse(void) {
         return -7;
     if (!parsetimesigs())
         return -8;
+    if (!parsetempochanges())
+        return -9;
     return 0;
 }
 
@@ -1344,6 +1350,51 @@ PTFFormat::parsetimesigs_block(block_t &blk) {
 
         time_signature_t parsed_sig = time_signature_t { pos, measure_num, (uint8_t)nom, (uint8_t)denom };
         _timesignatures.push_back(parsed_sig);
+    }
+    return true;
+}
+
+bool
+PTFFormat::parsetempochanges() {
+    for (vector<PTFFormat::block_t>::iterator b = _blocks.begin(); b != _blocks.end(); ++b) {
+        if (b->content_type == 0x2028) {
+            return parsetempochanges_block(*b);
+        }
+    }
+    return true;
+}
+
+bool
+PTFFormat::parsetempochanges_block(block_t &blk) {
+    static const uint32_t HEADER_SIZE = 17;
+    static const uint32_t EV_SIZE = 61;
+
+    if (blk.block_size < HEADER_SIZE)
+        return false;
+    uint8_t *data = &_ptfunxored[blk.offset];
+    data += 13;
+    uint32_t event_count = u_endian_read4(data, is_bigendian);
+    data += 4;
+    if (blk.block_size < HEADER_SIZE + event_count * EV_SIZE)
+        return false;
+
+    for (int i = 0; i < event_count; i++) {
+        data += 34; // (....Const......TMS................)
+        uint64_t pos = u_endian_read8(data, is_bigendian);
+        data += 10; // 8b + 2b (pad)
+        uint64_t tempo_bytes = u_endian_read8(data, is_bigendian);
+        double tempo;
+        memcpy(&tempo, &tempo_bytes, sizeof(double));
+        data += 8;
+        uint64_t beat_length = u_endian_read8(data, is_bigendian);
+        data += 9; // 8b + 1b (pad)
+
+        // check that tempo is within range (5 - 500) and beat length is divisible by 1/32 note length
+        if (tempo < 5. || tempo > 500. || beat_length % 120000 != 0)
+            return false;
+
+        tempo_change_t tempo_change = tempo_change_t { pos, tempo, beat_length };
+        _tempochanges.push_back(tempo_change);
     }
     return true;
 }

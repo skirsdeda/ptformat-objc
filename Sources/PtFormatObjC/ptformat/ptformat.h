@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2015-2019  Damien Zammit
  * Copyright (C) 2015-2019  Robin Gareus
+ * Copyright (C) 2021-      Tadas Dailyda
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -47,6 +48,7 @@ public:
         -9    error parsing metadata
         -10   error parsing key signatures
         -11   error parsing time signatures
+        -12   error parsing tempo changes
     */
     int load(std::string const& path);
 
@@ -135,8 +137,14 @@ public:
         std::string location;
     };
 
+    /** MIDI POSITION (key_signature_t.pos, time_signature_t.pos, tempo_change_t.pos)
+        is encoded as PPQN since session start, session start being 1,000,000,000,000 (1 trillion).
+        960,000 PPQN resolution is being used, so if we have 4/4 time signature, then second measure (2|1|000)
+        is 1,000,000,000,000 + 960,000 * 4 * 1 = 1,000,003,840,000
+     */
+
     struct key_signature_t {
-        uint64_t pos;
+        uint64_t pos; // 8b
         bool     is_major; // otherwise - minor
         bool     is_sharp; // otherwise - flat
         uint8_t  sign_count; // how many alteration signs
@@ -148,6 +156,15 @@ public:
         uint8_t nominator; // actual range: 1-99 (takes up 4b in file)
         uint8_t denominator; // possible values 1/2/4/8/16/32/64 (takes up 4b in file)
         // 1 event: 8b + 4b*3 + 16b (pad, seems to be constant) = 36b
+    };
+
+    struct tempo_change_t {
+        uint64_t pos; // 8b
+        double tempo; // 8b
+        uint64_t beat_len; // 3b used at most, sixteenth note being the shortest possible at 240,000 as decimal
+                           // which coincides with 960,000 PPQN being used in Pro Tools
+        // 1 event: 4b pad (00x4) + "Const" (5b) + 6b pad (01002e000000) + “TMS” (3b) + 16b pad (010014(00x4)(01|00)(00x8)) +
+        //          8b POSITION + 2b pad (00(01|00)) + 8b TEMPO (double) + 8b BEAT LENGTH + 1b pad (0x00) = 61b
     };
 
     bool find_track(uint16_t index, track_t& tt) const {
@@ -258,6 +275,7 @@ public:
     const std::vector<track_t>&  miditracks () const { return _miditracks ; }
     const std::vector<key_signature_t>& keysignatures () const { return _keysignatures ; }
     const std::vector<time_signature_t>& timesignatures () const { return _timesignatures; }
+    const std::vector<tempo_change_t>& tempochanges () const { return _tempochanges; }
 
     const unsigned char* unxored_data () const { return _ptfunxored; }
     uint64_t             unxored_size () const { return _len; }
@@ -275,6 +293,7 @@ private:
     std::vector<track_t>  _miditracks;
     std::vector<key_signature_t> _keysignatures;
     std::vector<time_signature_t> _timesignatures;
+    std::vector<tempo_change_t> _tempochanges;
     unsigned char* _session_meta_base64;
     uint32_t _session_meta_base64_size;
     metadata_t _session_meta_parsed;
@@ -311,6 +330,8 @@ private:
     bool parsekeysig(block_t& blk);
     bool parsetimesigs(void);
     bool parsetimesigs_block(block_t& blk);
+    bool parsetempochanges(void);
+    bool parsetempochanges_block(block_t& blk);
     void dump(void);
     bool parse_block_at(uint32_t pos, struct block_t *b, struct block_t *parent, int level);
     void dump_block(struct block_t& b, int level);

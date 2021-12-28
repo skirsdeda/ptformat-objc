@@ -48,6 +48,15 @@
 @property (nonatomic, readonly) uint8_t denom;
 @end
 
+@interface PTTempoChange : NSObject
++ (nonnull instancetype) new NS_UNAVAILABLE;
++ (nonnull instancetype) tempoChangeWithPos:(uint64_t)pos tempo:(double)tempo beatLength:(uint64_t)beatLength;
+- (nonnull instancetype) init NS_UNAVAILABLE;
+@property (nonatomic, readonly) uint64_t pos;
+@property (nonatomic, readonly) double tempo;
+@property (nonatomic, readonly) uint64_t beatLength;
+@end
+
 @interface ProToolsFormat : NSObject
 + (nonnull instancetype) new NS_UNAVAILABLE;
 + (nullable instancetype) newWithPath:(nonnull NSString *)path error:(NSError * _Nullable * _Nullable)error;
@@ -62,6 +71,7 @@
 - (nonnull PTMetadata *) metadata;
 - (nonnull NSArray<PTKeySignature *> *) keySignatures;
 - (nonnull NSArray<PTTimeSignature *> *) timeSignatures;
+- (nonnull NSArray<PTTempoChange *> *) tempoChanges;
 - (nonnull NSArray<PTBlock *> *) blocks;
 @end
 

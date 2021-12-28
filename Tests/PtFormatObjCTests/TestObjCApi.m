@@ -132,6 +132,38 @@
     ];
 
     XCTAssertEqualObjects(timeSigsActual, timeSigsExpected);
+
+    static const uint64_t BEGIN = 1000000000000u;
+    static const uint64_t SIXTEENTH = 240000u;
+    static const uint64_t QUARTER = SIXTEENTH * 4;
+    NSArray<PTTempoChange *> *tempoChangesActual = [ptFormat tempoChanges];
+    NSArray<PTTempoChange *> *tempoChangesExpected = @[
+        [PTTempoChange tempoChangeWithPos:BEGIN tempo:200. beatLength:SIXTEENTH],
+        [PTTempoChange tempoChangeWithPos:BEGIN + 1 * SIXTEENTH tempo:51. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:BEGIN + 2 * SIXTEENTH tempo:52. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:BEGIN + 3 * SIXTEENTH tempo:53. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:BEGIN + 4 * SIXTEENTH tempo:54. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:BEGIN + 5 * SIXTEENTH tempo:55. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:BEGIN + 6 * SIXTEENTH tempo:56. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:BEGIN + 7 * SIXTEENTH tempo:57. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:BEGIN + 8 * SIXTEENTH tempo:60. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:BEGIN + 9 * SIXTEENTH tempo:61. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:BEGIN + 10 * SIXTEENTH tempo:62. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:BEGIN + 11 * SIXTEENTH tempo:63. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:BEGIN + 12 * SIXTEENTH tempo:64. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:BEGIN + 13 * SIXTEENTH tempo:65. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:BEGIN + 14 * SIXTEENTH tempo:66. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:BEGIN + 15 * SIXTEENTH tempo:67. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:1000003840000u tempo:99.9998 beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:1000005760000u tempo:110. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:1000008640000u tempo:101. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:1000011520000u tempo:80. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:1000014400000u tempo:90. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:1007361280000u tempo:100. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:1007701600000u tempo:200. beatLength:QUARTER]
+    ];
+
+    XCTAssertEqualObjects(tempoChangesActual, tempoChangesExpected);
 }
 
 @end
