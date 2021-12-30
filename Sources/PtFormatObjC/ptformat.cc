@@ -40,6 +40,7 @@
 
 #define BITCODE			"0010111100101011"
 #define ZMARK			'\x5a'
+// ZERO_TICKS - start position for all MIDI events is 1,000,000,000,000 (1 trillion)
 #define ZERO_TICKS		0xe8d4a51000ULL
 #define MAX_CONTENT_TYPE	0x3000
 #define MAX_CHANNELS_PER_TRACK	8
@@ -1296,7 +1297,7 @@ PTFFormat::parsekeysig(block_t& blk) {
 
     uint8_t *data = &_ptfunxored[blk.offset];
     data += 2;
-    uint64_t pos = u_endian_read8(data, is_bigendian);
+    uint64_t pos = u_endian_read8(data, is_bigendian) - ZERO_TICKS;
     data += 8;
     uint8_t is_major = *data++;
     uint8_t is_sharp = *data++;
@@ -1335,7 +1336,7 @@ PTFFormat::parsetimesigs_block(block_t &blk) {
         return false;
 
     for (int i = 0; i < event_count; i++) {
-        uint64_t pos = u_endian_read8(data, is_bigendian);
+        uint64_t pos = u_endian_read8(data, is_bigendian) - ZERO_TICKS;
         data += 8;
         uint32_t measure_num = u_endian_read4(data, is_bigendian);
         data += 4;
@@ -1380,7 +1381,7 @@ PTFFormat::parsetempochanges_block(block_t &blk) {
 
     for (int i = 0; i < event_count; i++) {
         data += 34; // (....Const......TMS................)
-        uint64_t pos = u_endian_read8(data, is_bigendian);
+        uint64_t pos = u_endian_read8(data, is_bigendian) - ZERO_TICKS;
         data += 10; // 8b + 2b (pad)
         uint64_t tempo_bytes = u_endian_read8(data, is_bigendian);
         double tempo;

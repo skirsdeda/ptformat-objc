@@ -70,7 +70,7 @@ public:
         std::string filename;
         uint16_t    index;
 
-        int64_t     posabsolute;
+        int64_t     posabsolute; // FIXME: why aren't these uint64_t?
         int64_t     length;
 
         bool operator <(const struct wav_t& other) const {
@@ -97,7 +97,7 @@ public:
     struct region_t {
         std::string name;
         uint16_t    index;
-        int64_t     startpos;
+        int64_t     startpos; // FIXME: why aren't these uint64_t?
         int64_t     sampleoffset;
         int64_t     length;
         wav_t       wave;
@@ -138,9 +138,9 @@ public:
     };
 
     /** MIDI POSITION (key_signature_t.pos, time_signature_t.pos, tempo_change_t.pos)
-        is encoded as PPQN since session start, session start being 1,000,000,000,000 (1 trillion).
+        is encoded as PPQN (or ticks) since session start.
         960,000 PPQN resolution is being used, so if we have 4/4 time signature, then second measure (2|1|000)
-        is 1,000,000,000,000 + 960,000 * 4 * 1 = 1,000,003,840,000
+        is 960,000 * 4 * 1 = 3,840,000
      */
 
     struct key_signature_t {

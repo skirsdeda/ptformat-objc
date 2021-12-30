@@ -99,68 +99,67 @@
 
     NSArray<PTKeySignature *> *keySigsActual = [ptFormat keySignatures];
     NSArray<PTKeySignature *> *keySigsExpected = @[
-        [PTKeySignature keySigWithPos: 1000000000000u isMajor: YES isSharp: YES signs: 6],
-        [PTKeySignature keySigWithPos: 1000003840000u isMajor: YES isSharp: NO signs: 1],
-        [PTKeySignature keySigWithPos: 1000005760000u isMajor: NO isSharp: NO signs: 5],
-        [PTKeySignature keySigWithPos: 1000008640000u isMajor: NO isSharp: YES signs: 0],
-        [PTKeySignature keySigWithPos: 1000011520000u isMajor: NO isSharp: YES signs: 1],
-        [PTKeySignature keySigWithPos: 1000014400000u isMajor: NO isSharp: YES signs: 2],
-        [PTKeySignature keySigWithPos: 1000017280000u isMajor: NO isSharp: YES signs: 3],
-        [PTKeySignature keySigWithPos: 1000020160000u isMajor: NO isSharp: YES signs: 4],
-        [PTKeySignature keySigWithPos: 1000023040000u isMajor: NO isSharp: YES signs: 5],
-        [PTKeySignature keySigWithPos: 1000025920000u isMajor: NO isSharp: YES signs: 6],
-        [PTKeySignature keySigWithPos: 1000028800000u isMajor: NO isSharp: YES signs: 7],
-        [PTKeySignature keySigWithPos: 1028169760000u isMajor: NO isSharp: NO signs: 1],
-        [PTKeySignature keySigWithPos: 1137353440000u isMajor: NO isSharp: NO signs: 4],
-        [PTKeySignature keySigWithPos: 1164747040000u isMajor: NO isSharp: YES signs: 5],
-        [PTKeySignature keySigWithPos: 1183007200000u isMajor: NO isSharp: YES signs: 6]
+        [PTKeySignature keySigWithPos: 0u isMajor: YES isSharp: YES signs: 6],
+        [PTKeySignature keySigWithPos: 3840000u isMajor: YES isSharp: NO signs: 1],
+        [PTKeySignature keySigWithPos: 5760000u isMajor: NO isSharp: NO signs: 5],
+        [PTKeySignature keySigWithPos: 8640000u isMajor: NO isSharp: YES signs: 0],
+        [PTKeySignature keySigWithPos: 11520000u isMajor: NO isSharp: YES signs: 1],
+        [PTKeySignature keySigWithPos: 14400000u isMajor: NO isSharp: YES signs: 2],
+        [PTKeySignature keySigWithPos: 17280000u isMajor: NO isSharp: YES signs: 3],
+        [PTKeySignature keySigWithPos: 20160000u isMajor: NO isSharp: YES signs: 4],
+        [PTKeySignature keySigWithPos: 23040000u isMajor: NO isSharp: YES signs: 5],
+        [PTKeySignature keySigWithPos: 25920000u isMajor: NO isSharp: YES signs: 6],
+        [PTKeySignature keySigWithPos: 28800000u isMajor: NO isSharp: YES signs: 7],
+        [PTKeySignature keySigWithPos: 28169760000u isMajor: NO isSharp: NO signs: 1],
+        [PTKeySignature keySigWithPos: 137353440000u isMajor: NO isSharp: NO signs: 4],
+        [PTKeySignature keySigWithPos: 164747040000u isMajor: NO isSharp: YES signs: 5],
+        [PTKeySignature keySigWithPos: 183007200000u isMajor: NO isSharp: YES signs: 6]
     ];
 
     XCTAssertEqualObjects(keySigsActual, keySigsExpected);
 
     NSArray<PTTimeSignature *> *timeSigsActual = [ptFormat timeSignatures];
     NSArray<PTTimeSignature *> *timeSigsExpected = @[
-        [PTTimeSignature timeSigWithPos: 1000000000000u measureNum: 1 nom: 4 denom: 4],
-        [PTTimeSignature timeSigWithPos: 1000003840000u measureNum: 2 nom: 2 denom: 4],
-        [PTTimeSignature timeSigWithPos: 1000005760000u measureNum: 3 nom: 3 denom: 4],
-        [PTTimeSignature timeSigWithPos: 1007474080000u measureNum: 2597 nom: 3 denom: 4],
-        [PTTimeSignature timeSigWithPos: 1050311200000u measureNum: 17471 nom: 2 denom: 4],
-        [PTTimeSignature timeSigWithPos: 1191832480000u measureNum: 91180 nom: 3 denom: 8],
-        [PTTimeSignature timeSigWithPos: 1191833920000u measureNum: 91181 nom: 5 denom: 2],
-        [PTTimeSignature timeSigWithPos: 1191843520000u measureNum: 91182 nom: 6 denom: 16],
-        [PTTimeSignature timeSigWithPos: 1191844960000u measureNum: 91183 nom: 2 denom: 4]
+        [PTTimeSignature timeSigWithPos: 0u measureNum: 1 nom: 4 denom: 4],
+        [PTTimeSignature timeSigWithPos: 3840000u measureNum: 2 nom: 2 denom: 4],
+        [PTTimeSignature timeSigWithPos: 5760000u measureNum: 3 nom: 3 denom: 4],
+        [PTTimeSignature timeSigWithPos: 7474080000u measureNum: 2597 nom: 3 denom: 4],
+        [PTTimeSignature timeSigWithPos: 50311200000u measureNum: 17471 nom: 2 denom: 4],
+        [PTTimeSignature timeSigWithPos: 191832480000u measureNum: 91180 nom: 3 denom: 8],
+        [PTTimeSignature timeSigWithPos: 191833920000u measureNum: 91181 nom: 5 denom: 2],
+        [PTTimeSignature timeSigWithPos: 191843520000u measureNum: 91182 nom: 6 denom: 16],
+        [PTTimeSignature timeSigWithPos: 191844960000u measureNum: 91183 nom: 2 denom: 4]
     ];
 
     XCTAssertEqualObjects(timeSigsActual, timeSigsExpected);
 
-    static const uint64_t BEGIN = 1000000000000u;
     static const uint64_t SIXTEENTH = 240000u;
     static const uint64_t QUARTER = SIXTEENTH * 4;
     NSArray<PTTempoChange *> *tempoChangesActual = [ptFormat tempoChanges];
     NSArray<PTTempoChange *> *tempoChangesExpected = @[
-        [PTTempoChange tempoChangeWithPos:BEGIN tempo:200. beatLength:SIXTEENTH],
-        [PTTempoChange tempoChangeWithPos:BEGIN + 1 * SIXTEENTH tempo:51. beatLength:QUARTER],
-        [PTTempoChange tempoChangeWithPos:BEGIN + 2 * SIXTEENTH tempo:52. beatLength:QUARTER],
-        [PTTempoChange tempoChangeWithPos:BEGIN + 3 * SIXTEENTH tempo:53. beatLength:QUARTER],
-        [PTTempoChange tempoChangeWithPos:BEGIN + 4 * SIXTEENTH tempo:54. beatLength:QUARTER],
-        [PTTempoChange tempoChangeWithPos:BEGIN + 5 * SIXTEENTH tempo:55. beatLength:QUARTER],
-        [PTTempoChange tempoChangeWithPos:BEGIN + 6 * SIXTEENTH tempo:56. beatLength:QUARTER],
-        [PTTempoChange tempoChangeWithPos:BEGIN + 7 * SIXTEENTH tempo:57. beatLength:QUARTER],
-        [PTTempoChange tempoChangeWithPos:BEGIN + 8 * SIXTEENTH tempo:60. beatLength:QUARTER],
-        [PTTempoChange tempoChangeWithPos:BEGIN + 9 * SIXTEENTH tempo:61. beatLength:QUARTER],
-        [PTTempoChange tempoChangeWithPos:BEGIN + 10 * SIXTEENTH tempo:62. beatLength:QUARTER],
-        [PTTempoChange tempoChangeWithPos:BEGIN + 11 * SIXTEENTH tempo:63. beatLength:QUARTER],
-        [PTTempoChange tempoChangeWithPos:BEGIN + 12 * SIXTEENTH tempo:64. beatLength:QUARTER],
-        [PTTempoChange tempoChangeWithPos:BEGIN + 13 * SIXTEENTH tempo:65. beatLength:QUARTER],
-        [PTTempoChange tempoChangeWithPos:BEGIN + 14 * SIXTEENTH tempo:66. beatLength:QUARTER],
-        [PTTempoChange tempoChangeWithPos:BEGIN + 15 * SIXTEENTH tempo:67. beatLength:QUARTER],
-        [PTTempoChange tempoChangeWithPos:1000003840000u tempo:99.9998 beatLength:QUARTER],
-        [PTTempoChange tempoChangeWithPos:1000005760000u tempo:110. beatLength:QUARTER],
-        [PTTempoChange tempoChangeWithPos:1000008640000u tempo:101. beatLength:QUARTER],
-        [PTTempoChange tempoChangeWithPos:1000011520000u tempo:80. beatLength:QUARTER],
-        [PTTempoChange tempoChangeWithPos:1000014400000u tempo:90. beatLength:QUARTER],
-        [PTTempoChange tempoChangeWithPos:1007361280000u tempo:100. beatLength:QUARTER],
-        [PTTempoChange tempoChangeWithPos:1007701600000u tempo:200. beatLength:QUARTER]
+        [PTTempoChange tempoChangeWithPos:0u tempo:200. beatLength:SIXTEENTH],
+        [PTTempoChange tempoChangeWithPos:1 * SIXTEENTH tempo:51. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:2 * SIXTEENTH tempo:52. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:3 * SIXTEENTH tempo:53. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:4 * SIXTEENTH tempo:54. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:5 * SIXTEENTH tempo:55. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:6 * SIXTEENTH tempo:56. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:7 * SIXTEENTH tempo:57. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:8 * SIXTEENTH tempo:60. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:9 * SIXTEENTH tempo:61. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:10 * SIXTEENTH tempo:62. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:11 * SIXTEENTH tempo:63. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:12 * SIXTEENTH tempo:64. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:13 * SIXTEENTH tempo:65. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:14 * SIXTEENTH tempo:66. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:15 * SIXTEENTH tempo:67. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:3840000u tempo:99.9998 beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:5760000u tempo:110. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:8640000u tempo:101. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:11520000u tempo:80. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:14400000u tempo:90. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:7361280000u tempo:100. beatLength:QUARTER],
+        [PTTempoChange tempoChangeWithPos:7701600000u tempo:200. beatLength:QUARTER]
     ];
 
     XCTAssertEqualObjects(tempoChangesActual, tempoChangesExpected);
