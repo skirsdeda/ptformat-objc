@@ -62,86 +62,53 @@ PTFFormat::~PTFFormat() {
     cleanup();
 }
 
+/**
+ Reads n bytes into unsigned integer type T swapping bytes for endianness if necessary.
+ */
+template <class T>
+static T
+u_endian_read(unsigned char *buf, bool bigendian, int n) {
+    int bit_shift_start = bigendian ? (n - 1) * 8 : 0;
+    int bit_shift_change = bigendian ? -8 : 8;
+
+    T ret = 0;
+    for (int in_i = 0, bit_shift = bit_shift_start; in_i < n; in_i++, bit_shift += bit_shift_change) {
+        ret |= (T)buf[in_i] << bit_shift;
+    }
+    return ret;
+}
+
+template <class T, int n = sizeof(T)>
+static T
+u_endian_read(unsigned char *buf, bool bigendian) {
+    static_assert(n <= sizeof(T), "Cannot read more bytes than sizeof(T)");
+
+    return u_endian_read<T>(buf, bigendian, n);
+}
+
 static uint16_t
-u_endian_read2(unsigned char *buf, bool bigendian)
-{
-    if (bigendian) {
-        return ((uint16_t)(buf[0]) << 8) | (uint16_t)(buf[1]);
-    } else {
-        return ((uint16_t)(buf[1]) << 8) | (uint16_t)(buf[0]);
-    }
+u_endian_read2(unsigned char *buf, bool bigendian) {
+    return u_endian_read<uint16_t>(buf, bigendian);
 }
 
 static uint32_t
-u_endian_read3(unsigned char *buf, bool bigendian)
-{
-    if (bigendian) {
-        return ((uint32_t)(buf[0]) << 16) |
-            ((uint32_t)(buf[1]) << 8) |
-            (uint32_t)(buf[2]);
-    } else {
-        return ((uint32_t)(buf[2]) << 16) |
-            ((uint32_t)(buf[1]) << 8) |
-            (uint32_t)(buf[0]);
-    }
-}
-
-static uint32_t
-u_endian_read4(unsigned char *buf, bool bigendian)
-{
-    if (bigendian) {
-        return ((uint32_t)(buf[0]) << 24) |
-            ((uint32_t)(buf[1]) << 16) |
-            ((uint32_t)(buf[2]) << 8) |
-            (uint32_t)(buf[3]);
-    } else {
-        return ((uint32_t)(buf[3]) << 24) |
-            ((uint32_t)(buf[2]) << 16) |
-            ((uint32_t)(buf[1]) << 8) |
-            (uint32_t)(buf[0]);
-    }
+u_endian_read4(unsigned char *buf, bool bigendian) {
+    return u_endian_read<uint32_t>(buf, bigendian);
 }
 
 static uint64_t
-u_endian_read5(unsigned char *buf, bool bigendian)
-{
-    if (bigendian) {
-        return ((uint64_t)(buf[0]) << 32) |
-            ((uint64_t)(buf[1]) << 24) |
-            ((uint64_t)(buf[2]) << 16) |
-            ((uint64_t)(buf[3]) << 8) |
-            (uint64_t)(buf[4]);
-    } else {
-        return ((uint64_t)(buf[4]) << 32) |
-            ((uint64_t)(buf[3]) << 24) |
-            ((uint64_t)(buf[2]) << 16) |
-            ((uint64_t)(buf[1]) << 8) |
-            (uint64_t)(buf[0]);
-    }
+u_endian_read5(unsigned char *buf, bool bigendian) {
+    return u_endian_read<uint64_t, 5>(buf, bigendian);
 }
 
 static uint64_t
-u_endian_read8(unsigned char *buf, bool bigendian)
-{
-    if (bigendian) {
-        return ((uint64_t)(buf[0]) << 56) |
-            ((uint64_t)(buf[1]) << 48) |
-            ((uint64_t)(buf[2]) << 40) |
-            ((uint64_t)(buf[3]) << 32) |
-            ((uint64_t)(buf[4]) << 24) |
-            ((uint64_t)(buf[5]) << 16) |
-            ((uint64_t)(buf[6]) << 8) |
-            (uint64_t)(buf[7]);
-    } else {
-        return ((uint64_t)(buf[7]) << 56) |
-            ((uint64_t)(buf[6]) << 48) |
-            ((uint64_t)(buf[5]) << 40) |
-            ((uint64_t)(buf[4]) << 32) |
-            ((uint64_t)(buf[3]) << 24) |
-            ((uint64_t)(buf[2]) << 16) |
-            ((uint64_t)(buf[1]) << 8) |
-            (uint64_t)(buf[0]);
-    }
+u_endian_read6(unsigned char *buf, bool bigendian) {
+    return u_endian_read<uint64_t, 6>(buf, bigendian);
+}
+
+static uint64_t
+u_endian_read8(unsigned char *buf, bool bigendian) {
+    return u_endian_read<uint64_t>(buf, bigendian);
 }
 
 void
@@ -628,84 +595,19 @@ PTFFormat::parseaudio(void) {
 
 void
 PTFFormat::parse_three_point(uint32_t j, uint64_t& start, uint64_t& offset, uint64_t& length) {
-    uint8_t offsetbytes, lengthbytes, startbytes;
-
+    uint32_t indexes[] = {1, 2, 3, 4}; // offset b, length b, start b, skip b (if !is_big_endian, otherwise - reversed)
     if (is_bigendian) {
-        offsetbytes = (_ptfunxored[j+4] & 0xf0) >> 4;
-        lengthbytes = (_ptfunxored[j+3] & 0xf0) >> 4;
-        startbytes = (_ptfunxored[j+2] & 0xf0) >> 4;
-        //somethingbytes = (_ptfunxored[j+2] & 0xf);
-        //skipbytes = _ptfunxored[j+1];
-    } else {
-        offsetbytes = (_ptfunxored[j+1] & 0xf0) >> 4; //3
-        lengthbytes = (_ptfunxored[j+2] & 0xf0) >> 4;
-        startbytes = (_ptfunxored[j+3] & 0xf0) >> 4; //1
-        //somethingbytes = (_ptfunxored[j+3] & 0xf);
-        //skipbytes = _ptfunxored[j+4];
+        std::reverse(indexes, indexes + 4);
     }
+    uint8_t offsetbytes = _ptfunxored[j + indexes[0]] >> 4;
+    uint8_t lengthbytes = _ptfunxored[j + indexes[1]] >> 4;
+    uint8_t startbytes = _ptfunxored[j + indexes[2]] >> 4;
 
-    switch (offsetbytes) {
-    case 5:
-        offset = u_endian_read5(&_ptfunxored[j+5], false);
-        break;
-    case 4:
-        offset = (uint64_t)u_endian_read4(&_ptfunxored[j+5], false);
-        break;
-    case 3:
-        offset = (uint64_t)u_endian_read3(&_ptfunxored[j+5], false);
-        break;
-    case 2:
-        offset = (uint64_t)u_endian_read2(&_ptfunxored[j+5], false);
-        break;
-    case 1:
-        offset = (uint64_t)(_ptfunxored[j+5]);
-        break;
-    default:
-        offset = 0;
-        break;
-    }
-    j+=offsetbytes;
-    switch (lengthbytes) {
-    case 5:
-        length = u_endian_read5(&_ptfunxored[j+5], false);
-        break;
-    case 4:
-        length = (uint64_t)u_endian_read4(&_ptfunxored[j+5], false);
-        break;
-    case 3:
-        length = (uint64_t)u_endian_read3(&_ptfunxored[j+5], false);
-        break;
-    case 2:
-        length = (uint64_t)u_endian_read2(&_ptfunxored[j+5], false);
-        break;
-    case 1:
-        length = (uint64_t)(_ptfunxored[j+5]);
-        break;
-    default:
-        length = 0;
-        break;
-    }
-    j+=lengthbytes;
-    switch (startbytes) {
-    case 5:
-        start = u_endian_read5(&_ptfunxored[j+5], false);
-        break;
-    case 4:
-        start = (uint64_t)u_endian_read4(&_ptfunxored[j+5], false);
-        break;
-    case 3:
-        start = (uint64_t)u_endian_read3(&_ptfunxored[j+5], false);
-        break;
-    case 2:
-        start = (uint64_t)u_endian_read2(&_ptfunxored[j+5], false);
-        break;
-    case 1:
-        start = (uint64_t)(_ptfunxored[j+5]);
-        break;
-    default:
-        start = 0;
-        break;
-    }
+    offset = u_endian_read<uint64_t>(&_ptfunxored[j+5], false, offsetbytes);
+    j += offsetbytes;
+    length = u_endian_read<uint64_t>(&_ptfunxored[j+5], false, lengthbytes);
+    j += lengthbytes;
+    start = u_endian_read<uint64_t>(&_ptfunxored[j+5], false, lengthbytes);
 }
 
 void
@@ -725,7 +627,8 @@ PTFFormat::parse_region_info(uint32_t j, block_t& blk, region_t& r) {
     }
 
     std::vector<midi_ev_t> m;
-    r.startpos = start;
+    r.is_startpos_in_ticks = start > ZERO_TICKS;
+    r.startpos = r.is_startpos_in_ticks ? start - ZERO_TICKS : start;
     r.sampleoffset = sampleoffset;
     r.length = length;
     r.wave = f;
@@ -755,6 +658,8 @@ PTFFormat::parserest(void) {
                     vector<PTFFormat::block_t>::iterator d = c->child.begin();
                     region_t r;
 
+                    // FIXME: this is actually always parsing child block (0x2628)
+                    //        and duplicates code which is parsing 0x2628 (at least in .ptx files)
                     found = true;
                     j = c->offset + 11;
                     regionname = parsestring(j);
@@ -894,13 +799,14 @@ PTFFormat::parserest(void) {
                                     j = e->offset + 4;
                                     rawindex = u_endian_read4(&_ptfunxored[j], is_bigendian);
                                     j += 4 + 1;
-                                    start = u_endian_read4(&_ptfunxored[j], is_bigendian);
+                                    start = u_endian_read6(&_ptfunxored[j], is_bigendian);
                                     tindex = count;
                                     track_t ti;
                                     if (!find_track(tindex, ti) || !find_region(rawindex, ti.reg)) {
                                         continue;
                                     }
-                                    ti.reg.startpos = start;
+                                    ti.reg.is_startpos_in_ticks = start > ZERO_TICKS;
+                                    ti.reg.startpos = ti.reg.is_startpos_in_ticks ? start - ZERO_TICKS : start;
                                     if (ti.reg.index != 65535) {
                                         _tracks.push_back(ti);
                                     }
@@ -1009,7 +915,8 @@ PTFFormat::parsemidi(void) {
 
                             region_t r (regionnumber++);
                             r.name = midiregionname;
-                            r.startpos = (int64_t)0xe8d4a51000ULL;
+                            r.is_startpos_in_ticks = region_pos > ZERO_TICKS;
+                            r.startpos = r.is_startpos_in_ticks ? region_pos - ZERO_TICKS : region_pos;
                             r.sampleoffset = 0;
                             r.length = mc.maxlen;
                             r.midi = mc.chunk;
@@ -1074,7 +981,8 @@ PTFFormat::parsemidi(void) {
 
                                 region_t r (n);
                                 r.name = midiregionname;
-                                r.startpos = (int64_t)0xe8d4a51000ULL;
+                                r.is_startpos_in_ticks = true;
+                                r.startpos = 0;
                                 r.length = mc.maxlen;
                                 r.midi = mc.chunk;
                                 _midiregions.push_back(r);
@@ -1108,15 +1016,14 @@ PTFFormat::parsemidi(void) {
                                     j = e->offset + 4;
                                     rawindex = u_endian_read4(&_ptfunxored[j], is_bigendian);
                                     j += 4 + 1;
-                                    start = u_endian_read5(&_ptfunxored[j], is_bigendian);
+                                    start = u_endian_read6(&_ptfunxored[j], is_bigendian);
                                     tindex = count;
                                     if (!find_miditrack(tindex, ti) || !find_midiregion(rawindex, ti.reg)) {
                                         continue;
                                     }
-                                    int64_t signedstart = (int64_t)(start - ZERO_TICKS);
-                                    if (signedstart < 0)
-                                        signedstart = -signedstart;
-                                    ti.reg.startpos = signedstart;
+
+                                    ti.reg.is_startpos_in_ticks = start > ZERO_TICKS;
+                                    ti.reg.startpos = ti.reg.is_startpos_in_ticks ? start - ZERO_TICKS : start;
                                     if (ti.reg.index != 65535) {
                                         _miditracks.push_back(ti);
                                     }
