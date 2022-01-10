@@ -70,8 +70,8 @@ public:
         std::string filename;
         uint16_t    index;
 
-        int64_t     posabsolute; // FIXME: why aren't these uint64_t?
-        int64_t     length;
+        uint64_t    posabsolute;
+        uint64_t    length;
 
         bool operator <(const struct wav_t& other) const {
             return (strcasecmp(this->filename.c_str(),
@@ -97,9 +97,10 @@ public:
     struct region_t {
         std::string name;
         uint16_t    index;
-        int64_t     startpos; // FIXME: why aren't these uint64_t?
-        int64_t     sampleoffset;
-        int64_t     length;
+        bool        is_startpos_in_ticks; // MIDI timebase if true, samples timebase otherwise
+        uint64_t    startpos;
+        uint64_t    sampleoffset;
+        uint64_t    length;
         wav_t       wave;
         std::vector<midi_ev_t> midi;
 
@@ -111,7 +112,7 @@ public:
             return (strcasecmp(this->name.c_str(),
                     other.name.c_str()) < 0);
         }
-        region_t (uint16_t idx = 0) : index (idx), startpos (0), sampleoffset (0), length (0) {}
+        region_t (uint16_t idx = 0) : index (idx), is_startpos_in_ticks (false), startpos (0), sampleoffset (0), length (0) {}
     };
 
     struct track_t {
