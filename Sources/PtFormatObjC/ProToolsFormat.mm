@@ -36,6 +36,150 @@
 
 @end
 
+@implementation PTWav
++ (instancetype) wavWithFilename:(nonnull NSString *)filename index:(uint16_t)index posAbsolute:(uint64_t)pos length:(uint64_t)length {
+    PTWav *wav = [[PTWav alloc] init];
+    wav->_filename = filename;
+    wav->_index = index;
+    wav->_posAbsolute = pos;
+    wav->_length = length;
+    return wav;
+}
+
++ (nullable instancetype) fromWav:(PTFFormat::wav_t)wav {
+    // FIXME: fix C++ code to not produce empty WAVs when region is split into audio/MIDI counterparts
+    if (wav.filename.empty() && wav.index == 0 && wav.posabsolute == 0 && wav.length == 0) {
+        return nil;
+    }
+    NSString *filename = [NSString stringWithUTF8String:wav.filename.c_str()];
+    return [PTWav wavWithFilename:filename index:wav.index posAbsolute:wav.posabsolute length:wav.length];
+}
+
+- (BOOL)isEqual:(id)other {
+    if (other == self)
+        return YES;
+    if (!other || ![other isKindOfClass:[self class]])
+        return NO;
+    return [self isEqualToWav:other];
+}
+
+- (BOOL)isEqualToWav:(nonnull PTWav *)wav {
+    if (self == wav)
+        return YES;
+    return ([self->_filename isEqualToString:wav->_filename] && self->_index == wav->_index &&
+            self->_posAbsolute == wav->_posAbsolute && self->_length == wav->_length);
+}
+@end
+
+@implementation PTMidiEv
++ (instancetype) midiEvWithPos:(uint64_t)pos length:(uint64_t)length note:(uint8_t)note velocity:(uint8_t)velocity {
+    PTMidiEv *midiEv = [[PTMidiEv alloc] init];
+    midiEv->_pos = pos;
+    midiEv->_length = length;
+    midiEv->_note = note;
+    midiEv->_velocity = velocity;
+    return midiEv;
+}
+
++ (instancetype) fromMidiEv:(PTFFormat::midi_ev_t)ev {
+    return [PTMidiEv midiEvWithPos:ev.pos length:ev.length note:ev.note velocity:ev.velocity];
+}
+
+- (BOOL)isEqual:(id)other {
+    if (other == self)
+        return YES;
+    if (!other || ![other isKindOfClass:[self class]])
+        return NO;
+    return [self isEqualToMidiEv:other];
+}
+
+- (BOOL)isEqualToMidiEv:(nonnull PTMidiEv *)midiEv {
+    if (self == midiEv)
+        return YES;
+    return (self->_pos == midiEv->_pos && self->_length == midiEv->_length &&
+            self->_note == midiEv->_note && self->_velocity == midiEv->_velocity);
+}
+@end
+
+@implementation PTRegion
++ (instancetype) regionWithName:(nonnull NSString *)name index:(uint16_t)index isStartPosInTicks:(BOOL)isInTicks
+                       startPos:(uint64_t)startPos sampleOffset:(uint64_t)sampleOffset length:(uint64_t)length
+                           wave:(nullable PTWav *)wave midi:(nonnull NSArray<PTMidiEv *> *)midi {
+    PTRegion *region = [[PTRegion alloc] init];
+    region->_name = name;
+    region->_index = index;
+    region->_isStartPosInTicks = isInTicks;
+    region->_startPos = startPos;
+    region->_sampleOffset = sampleOffset;
+    region->_length = length;
+    region->_wave = wave;
+    region->_midi = midi;
+    return region;
+}
+
++ (instancetype) fromRegion:(PTFFormat::region_t)r {
+    NSString *name = [NSString stringWithUTF8String:r.name.c_str()];
+    PTWav *maybeWave = [PTWav fromWav:r.wave];
+    NSMutableArray<PTMidiEv *> *midi = [NSMutableArray arrayWithCapacity:r.midi.size()];
+    for (int i = 0; i < r.midi.size(); i++) {
+        [midi addObject:[PTMidiEv fromMidiEv:r.midi[i]]];
+    }
+    return [PTRegion regionWithName:name index:r.index isStartPosInTicks:r.is_startpos_in_ticks
+                           startPos:r.startpos sampleOffset:r.sampleoffset length:r.length wave:maybeWave midi:midi];
+}
+
+- (BOOL)isEqual:(id)other {
+    if (other == self)
+        return YES;
+    if (!other || ![other isKindOfClass:[self class]])
+        return NO;
+    return [self isEqualToRegion:other];
+}
+
+- (BOOL)isEqualToRegion:(nonnull PTRegion *)region {
+    if (self == region)
+        return YES;
+    // FIXME: split Region (probably better called Clip) into ADT having AudioClip and MidiClip so that there are no nullable fields
+    BOOL wavesEqual = (self->_wave && region->_wave) ? [self->_wave isEqualToWav:region->_wave] : self->_wave == region->_wave;
+    return ([self->_name isEqualToString:region->_name] && self->_index == region->_index &&
+            self->_isStartPosInTicks == region->_isStartPosInTicks && self->_startPos == region->_startPos &&
+            self->_sampleOffset == region->_sampleOffset && self->_length == region->_length &&
+            wavesEqual && [self->_midi isEqualToArray:region->_midi]);
+}
+@end
+
+@implementation PTTrack
++ (nonnull instancetype) trackWithName:(nonnull NSString *)name index:(uint16_t)index playlist:(uint8_t)playlist region:(nonnull PTRegion *)region {
+    PTTrack *track = [[PTTrack alloc] init];
+    track->_name = name;
+    track->_index = index;
+    track->_playlist = playlist;
+    track->_region = region;
+    return track;
+}
+
++ (instancetype) fromTrack:(PTFFormat::track_t)t {
+    NSString *name = [NSString stringWithUTF8String:t.name.c_str()];
+    PTRegion *region = [PTRegion fromRegion:t.reg];
+    return [PTTrack trackWithName:name index:t.index playlist:t.playlist region:region];
+}
+
+- (BOOL)isEqual:(id)other {
+    if (other == self)
+        return YES;
+    if (!other || ![other isKindOfClass:[self class]])
+        return NO;
+    return [self isEqualToTrack:other];
+}
+
+- (BOOL)isEqualToTrack:(nonnull PTTrack *)track {
+    if (self == track)
+        return YES;
+    return ([self->_name isEqualToString:track->_name] && self->_index == track->_index &&
+            self->_playlist == track->_playlist && [self->_region isEqualToRegion:track->_region]);
+}
+@end
+
 @interface PTMetadata()
 + (instancetype) metaWithTitle:(NSString *)title artist:(NSString *) artist contributors:(NSArray<NSString *> *)contributors
                       location:(NSString *)location;
@@ -71,7 +215,7 @@
     return [self isEqualToKeySignature:other];
 }
 
-- (BOOL)isEqualToKeySignature:(PTKeySignature *)keySig {
+- (BOOL)isEqualToKeySignature:(nonnull PTKeySignature *)keySig {
     if (self == keySig)
         return YES;
     return (self->_pos == keySig->_pos && self->_isMajor == keySig->_isMajor &&
@@ -97,7 +241,7 @@
     return [self isEqualToTimeSignature:other];
 }
 
-- (BOOL)isEqualToTimeSignature:(PTTimeSignature *)timeSig {
+- (BOOL)isEqualToTimeSignature:(nonnull PTTimeSignature *)timeSig {
     if (self == timeSig)
         return YES;
     return (self->_pos == timeSig->_pos && self->_measureNum == timeSig->_measureNum &&
@@ -122,7 +266,7 @@
     return [self isEqualToTempoChange:other];
 }
 
-- (BOOL)isEqualToTempoChange:(PTTempoChange *)tempoChange {
+- (BOOL)isEqualToTempoChange:(nonnull PTTempoChange *)tempoChange {
     if (self == tempoChange)
         return YES;
     return (self->_pos == tempoChange->_pos && self->_tempo == tempoChange->_tempo &&
@@ -182,6 +326,26 @@
     return [[NSData alloc] initWithBytes:object->unxored_data() length:object->unxored_size()];
 }
 
+- (nonnull NSArray<PTBlock *> *) blocks {
+    return [PTBlock arrayFromVector:object->blocks() unxored:object->unxored_data()];
+}
+
+- (nonnull NSArray<PTTrack *> *) _tracksFromTracks:(std::vector<PTFFormat::track_t>)tracksSrc {
+    NSMutableArray<PTTrack *> *ret = [NSMutableArray arrayWithCapacity:tracksSrc.size()];
+    for (int i = 0; i < tracksSrc.size(); i++) {
+        [ret addObject:[PTTrack fromTrack:tracksSrc[i]]];
+    }
+    return ret;
+}
+
+- (nonnull NSArray<PTTrack *> *) tracks {
+    return [self _tracksFromTracks:object->tracks()];
+}
+
+- (nonnull NSArray<PTTrack *> *) midiTracks {
+    return [self _tracksFromTracks:object->miditracks()];
+}
+
 - (nullable NSData *) metadataBase64 {
     const unsigned char *data = object->metadata_base64();
     if (data == NULL) {
@@ -239,10 +403,6 @@
         tempoChanges[i] = [PTTempoChange tempoChangeWithPos:t.pos tempo:t.tempo beatLength:t.beat_len];
     }
     return [[NSArray alloc] initWithObjects:tempoChanges count:tempoChangesSrc.size()];
-}
-
-- (nonnull NSArray<PTBlock *> *) blocks {
-    return [PTBlock arrayFromVector:object->blocks() unxored:object->unxored_data()];
 }
 
 @end

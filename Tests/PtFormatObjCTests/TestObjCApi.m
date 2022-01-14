@@ -165,4 +165,79 @@
     XCTAssertEqualObjects(tempoChangesActual, tempoChangesExpected);
 }
 
+- (void)testRegionPosLimits {
+    NSError *error;
+    ProToolsFormat *ptFormat = [self loadFromResource:@"RegionPosLimits" ofType:@"ptx" error:&error];
+    XCTAssertNotNil(ptFormat);
+    XCTAssertNil(error);
+
+    NSArray<PTTrack *> *tracksActual = [ptFormat tracks];
+    NSArray<PTTrack *> *midiTracksActual = [ptFormat midiTracks];
+
+    // FIXME: verify that all values here actually make sense
+    PTWav *wavAudioInSamples1 = [PTWav wavWithFilename:@"Audio in samples_01.aif" index:0 posAbsolute:65534 length:213964];
+    PTWav *wavAudioInSamples2 = [PTWav wavWithFilename:@"Audio in samples_01.aif" index:0 posAbsolute:16777215 length:78000];
+    PTRegion *regionAudioInSamples1 = [PTRegion regionWithName:@"Audio in samples_01" index:0 isStartPosInTicks:NO
+                                                      startPos:96000 sampleOffset:0 length:213964 wave:wavAudioInSamples1 midi:@[]];
+    PTRegion *regionAudioInSamples2 = [PTRegion regionWithName:@"Audio in samples_01-01" index:1 isStartPosInTicks:NO
+                                                      startPos:384000 sampleOffset:0 length:78000 wave:wavAudioInSamples2 midi:@[]];
+    PTRegion *regionAudioInTicks1 = [PTRegion regionWithName:@"Audio in samples_01" index:0 isStartPosInTicks:YES
+                                                    startPos:7680000 sampleOffset:0 length:213964 wave:wavAudioInSamples1 midi:@[]];
+    PTRegion *regionAudioInTicks2 = [PTRegion regionWithName:@"Audio in samples_01-01" index:1 isStartPosInTicks:YES
+                                                    startPos:15360000 sampleOffset:0 length:78000 wave:wavAudioInSamples2 midi:@[]];
+    NSArray<PTTrack *> *tracksExpected = @[
+        [PTTrack trackWithName:@"Audio in samples" index:0 playlist:0 region:regionAudioInSamples1],
+        [PTTrack trackWithName:@"Audio in samples" index:0 playlist:0 region:regionAudioInSamples2],
+        [PTTrack trackWithName:@"Audio in ticks" index:1 playlist:0 region:regionAudioInTicks1],
+        [PTTrack trackWithName:@"Audio in ticks" index:1 playlist:0 region:regionAudioInTicks2]
+    ];
+
+    NSArray<PTMidiEv *> *midi1 = @[
+        [PTMidiEv midiEvWithPos:0 length:6000 note:61 velocity:80],
+        [PTMidiEv midiEvWithPos:6000 length:6000 note:60 velocity:80],
+        [PTMidiEv midiEvWithPos:36000 length:6000 note:60 velocity:80],
+        [PTMidiEv midiEvWithPos:60000 length:12000 note:59 velocity:80],
+        [PTMidiEv midiEvWithPos:84000 length:24000 note:59 velocity:80],
+        [PTMidiEv midiEvWithPos:288000 length:6000 note:61 velocity:80],
+        [PTMidiEv midiEvWithPos:294000 length:6000 note:60 velocity:80],
+        [PTMidiEv midiEvWithPos:324000 length:6000 note:60 velocity:80],
+        [PTMidiEv midiEvWithPos:348000 length:12000 note:59 velocity:80],
+        [PTMidiEv midiEvWithPos:372000 length:24000 note:59 velocity:80]
+    ];
+    NSArray<PTMidiEv *> *midi2 = @[
+        [PTMidiEv midiEvWithPos:0 length:240000 note:61 velocity:80],
+        [PTMidiEv midiEvWithPos:240000 length:240000 note:60 velocity:80],
+        [PTMidiEv midiEvWithPos:1440000 length:240000 note:60 velocity:80],
+        [PTMidiEv midiEvWithPos:2400000 length:480000 note:59 velocity:80],
+        [PTMidiEv midiEvWithPos:3360000 length:960000 note:59 velocity:80],
+        [PTMidiEv midiEvWithPos:11520000 length:240000 note:61 velocity:80],
+        [PTMidiEv midiEvWithPos:11760000 length:240000 note:60 velocity:80],
+        [PTMidiEv midiEvWithPos:12960000 length:240000 note:60 velocity:80],
+        [PTMidiEv midiEvWithPos:13920000 length:480000 note:59 velocity:80],
+        [PTMidiEv midiEvWithPos:14880000 length:960000 note:59 velocity:80]
+    ];
+    PTRegion *regionMidiInSamples1 = [PTRegion regionWithName:@"MIDI in samples-01" index:0 isStartPosInTicks:NO
+                                                     startPos:96000 sampleOffset:0 length:396000 wave:nil midi:midi1];
+    PTRegion *regionMidiInSamples2 = [PTRegion regionWithName:@"MIDI in samples-02" index:1 isStartPosInTicks:NO
+                                                     startPos:4150241280 sampleOffset:0 length:0 wave:nil midi:@[]];
+    PTRegion *regionMidiInSamples3 = [PTRegion regionWithName:@"MIDI in samples-03" index:2 isStartPosInTicks:NO
+                                                     startPos:4151232000 sampleOffset:0 length:92092 wave:nil
+                                                         midi:@[[PTMidiEv midiEvWithPos:0 length:92092 note:60 velocity:80]]];
+    PTRegion *regionMidiInTicks1 = [PTRegion regionWithName:@"MIDI in ticks-01" index:3 isStartPosInTicks:YES
+                                                   startPos:7679917 sampleOffset:0 length:15840000 wave:nil midi:midi2];
+    PTRegion *regionMidiInTicks2 = [PTRegion regionWithName:@"MIDI in ticks-03" index:5 isStartPosInTicks:YES
+                                                     startPos:691868160000 sampleOffset:0 length:19352667 wave:nil
+                                                         midi:@[[PTMidiEv midiEvWithPos:0 length:19352667 note:58 velocity:80]]];
+    NSArray<PTTrack *> *midiTracksExpected = @[
+        [PTTrack trackWithName:@"MIDI in samples" index:0 playlist:0 region:regionMidiInSamples1],
+        [PTTrack trackWithName:@"MIDI in samples" index:0 playlist:0 region:regionMidiInSamples2],
+        [PTTrack trackWithName:@"MIDI in samples" index:0 playlist:0 region:regionMidiInSamples3],
+        [PTTrack trackWithName:@"MIDI in ticks" index:1 playlist:0 region:regionMidiInTicks1],
+        [PTTrack trackWithName:@"MIDI in ticks" index:1 playlist:0 region:regionMidiInTicks2]
+    ];
+
+    XCTAssertEqualObjects(tracksActual, tracksExpected);
+    XCTAssertEqualObjects(midiTracksActual, midiTracksExpected);
+}
+
 @end
