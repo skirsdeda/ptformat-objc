@@ -55,7 +55,7 @@
     return [PTWav wavWithFilename:filename index:wav.index posAbsolute:wav.posabsolute length:wav.length];
 }
 
-- (BOOL)isEqual:(id)other {
+- (BOOL) isEqual:(id)other {
     if (other == self)
         return YES;
     if (!other || ![other isKindOfClass:[self class]])
@@ -63,7 +63,7 @@
     return [self isEqualToWav:other];
 }
 
-- (BOOL)isEqualToWav:(nonnull PTWav *)wav {
+- (BOOL) isEqualToWav:(nonnull PTWav *)wav {
     if (self == wav)
         return YES;
     return ([self->_filename isEqualToString:wav->_filename] && self->_index == wav->_index &&
@@ -85,7 +85,7 @@
     return [PTMidiEv midiEvWithPos:ev.pos length:ev.length note:ev.note velocity:ev.velocity];
 }
 
-- (BOOL)isEqual:(id)other {
+- (BOOL) isEqual:(id)other {
     if (other == self)
         return YES;
     if (!other || ![other isKindOfClass:[self class]])
@@ -93,7 +93,7 @@
     return [self isEqualToMidiEv:other];
 }
 
-- (BOOL)isEqualToMidiEv:(nonnull PTMidiEv *)midiEv {
+- (BOOL) isEqualToMidiEv:(nonnull PTMidiEv *)midiEv {
     if (self == midiEv)
         return YES;
     return (self->_pos == midiEv->_pos && self->_length == midiEv->_length &&
@@ -128,7 +128,7 @@
                            startPos:r.startpos sampleOffset:r.sampleoffset length:r.length wave:maybeWave midi:midi];
 }
 
-- (BOOL)isEqual:(id)other {
+- (BOOL) isEqual:(id)other {
     if (other == self)
         return YES;
     if (!other || ![other isKindOfClass:[self class]])
@@ -136,7 +136,7 @@
     return [self isEqualToRegion:other];
 }
 
-- (BOOL)isEqualToRegion:(nonnull PTRegion *)region {
+- (BOOL) isEqualToRegion:(nonnull PTRegion *)region {
     if (self == region)
         return YES;
     // FIXME: split Region (probably better called Clip) into ADT having AudioClip and MidiClip so that there are no nullable fields
@@ -145,6 +145,29 @@
             self->_isStartPosInTicks == region->_isStartPosInTicks && self->_startPos == region->_startPos &&
             self->_sampleOffset == region->_sampleOffset && self->_length == region->_length &&
             wavesEqual && [self->_midi isEqualToArray:region->_midi]);
+}
+@end
+
+@implementation PTRegionRange
++ (instancetype) regionRangeWithStart:(uint64_t)start end:(uint64_t)end {
+    PTRegionRange *range = [[PTRegionRange alloc] init];
+    range->_start = start;
+    range->_end = end;
+    return range;
+}
+
+- (BOOL) isEqual:(id)other {
+    if (other == self)
+        return YES;
+    if (!other || ![other isKindOfClass:[self class]])
+        return NO;
+    return [self isEqualToRegionRange:other];
+}
+
+- (BOOL) isEqualToRegionRange:(nonnull PTRegionRange *)range {
+    if (self == range)
+        return YES;
+    return (self->_start == range->_start && self->_end == range->_end);
 }
 @end
 
@@ -164,7 +187,7 @@
     return [PTTrack trackWithName:name index:t.index playlist:t.playlist region:region];
 }
 
-- (BOOL)isEqual:(id)other {
+- (BOOL) isEqual:(id)other {
     if (other == self)
         return YES;
     if (!other || ![other isKindOfClass:[self class]])
@@ -172,7 +195,7 @@
     return [self isEqualToTrack:other];
 }
 
-- (BOOL)isEqualToTrack:(nonnull PTTrack *)track {
+- (BOOL) isEqualToTrack:(nonnull PTTrack *)track {
     if (self == track)
         return YES;
     return ([self->_name isEqualToString:track->_name] && self->_index == track->_index &&
@@ -198,16 +221,18 @@
 @end
 
 @implementation PTKeySignature
-+ (instancetype) keySigWithPos:(uint64_t)pos isMajor:(BOOL)isMajor isSharp:(BOOL)isSharp signs:(uint8_t)signs {
-    PTKeySignature *ptKeySig = [[PTKeySignature alloc] init];
-    ptKeySig->_pos = pos;
-    ptKeySig->_isMajor = isMajor;
-    ptKeySig->_isSharp = isSharp;
-    ptKeySig->_signs = signs;
-    return ptKeySig;
++ (instancetype) keySigIsMajor:(BOOL)isMajor isSharp:(BOOL)isSharp signs:(uint8_t)signs {
+    return [[PTKeySignature alloc] initIsMajor:isMajor isSharp:isSharp signs:signs];
 }
 
-- (BOOL)isEqual:(id)other {
+- (instancetype) initIsMajor:(BOOL)isMajor isSharp:(BOOL)isSharp signs:(uint8_t)signs {
+    self->_isMajor = isMajor;
+    self->_isSharp = isSharp;
+    self->_signs = signs;
+    return self;
+}
+
+- (BOOL) isEqual:(id)other {
     if (other == self)
         return YES;
     if (!other || ![other isKindOfClass:[self class]])
@@ -215,25 +240,48 @@
     return [self isEqualToKeySignature:other];
 }
 
-- (BOOL)isEqualToKeySignature:(nonnull PTKeySignature *)keySig {
+- (BOOL) isEqualToKeySignature:(nonnull PTKeySignature *)keySig {
     if (self == keySig)
         return YES;
-    return (self->_pos == keySig->_pos && self->_isMajor == keySig->_isMajor &&
+    return (self->_isMajor == keySig->_isMajor &&
             self->_isSharp == keySig->_isSharp && self->_signs == keySig->_signs);
 }
 @end
 
-@implementation PTTimeSignature
-+ (nonnull instancetype) timeSigWithPos:(uint64_t)pos measureNum:(uint32_t)measureNum nom:(uint8_t)nom denom:(uint8_t)denom {
-    PTTimeSignature *ptTimeSig = [[PTTimeSignature alloc] init];
-    ptTimeSig->_pos = pos;
-    ptTimeSig->_measureNum = measureNum;
-    ptTimeSig->_nom = nom;
-    ptTimeSig->_denom = denom;
-    return ptTimeSig;
+@implementation PTKeySignatureEv
++ (instancetype) keySigWithPos:(uint64_t)pos isMajor:(BOOL)isMajor isSharp:(BOOL)isSharp signs:(uint8_t)signs {
+    PTKeySignatureEv *ptKeySig = [[PTKeySignatureEv alloc] init];
+    ptKeySig->_pos = pos;
+    return [ptKeySig initIsMajor:isMajor isSharp:isSharp signs:signs];
 }
 
-- (BOOL)isEqual:(id)other {
+- (BOOL) isEqual:(id)other {
+    if (other == self)
+        return YES;
+    if (!other || ![other isKindOfClass:[self class]])
+        return NO;
+    return [self isEqualToKeySignatureEv:other];
+}
+
+- (BOOL) isEqualToKeySignatureEv:(nonnull PTKeySignatureEv *)keySig {
+    if (self == keySig)
+        return YES;
+    return (self->_pos == keySig->_pos && [super isEqualToKeySignature:keySig]);
+}
+@end
+
+@implementation PTTimeSignature
++ (instancetype) timeSigWithNom:(uint8_t)nom denom:(uint8_t)denom {
+    return [[PTTimeSignature alloc] initNom:nom denom:denom];
+}
+
+- (instancetype) initNom:(uint8_t)nom denom:(uint8_t)denom {
+    self->_nom = nom;
+    self->_denom = denom;
+    return self;
+}
+
+- (BOOL) isEqual:(id)other {
     if (other == self)
         return YES;
     if (!other || ![other isKindOfClass:[self class]])
@@ -241,11 +289,34 @@
     return [self isEqualToTimeSignature:other];
 }
 
-- (BOOL)isEqualToTimeSignature:(nonnull PTTimeSignature *)timeSig {
+- (BOOL) isEqualToTimeSignature:(nonnull PTTimeSignature *)timeSig {
+    if (self == timeSig)
+        return YES;
+    return (self->_nom == timeSig->_nom && self->_denom == timeSig->_denom);
+}
+@end
+
+@implementation PTTimeSignatureEv
++ (nonnull instancetype) timeSigWithPos:(uint64_t)pos measureNum:(uint32_t)measureNum nom:(uint8_t)nom denom:(uint8_t)denom {
+    PTTimeSignatureEv *ptTimeSig = [[PTTimeSignatureEv alloc] init];
+    ptTimeSig->_pos = pos;
+    ptTimeSig->_measureNum = measureNum;
+    return [ptTimeSig initNom:nom denom:denom];
+}
+
+- (BOOL) isEqual:(id)other {
+    if (other == self)
+        return YES;
+    if (!other || ![other isKindOfClass:[self class]])
+        return NO;
+    return [self isEqualToTimeSignatureEv:other];
+}
+
+- (BOOL) isEqualToTimeSignatureEv:(nonnull PTTimeSignatureEv *)timeSig {
     if (self == timeSig)
         return YES;
     return (self->_pos == timeSig->_pos && self->_measureNum == timeSig->_measureNum &&
-            self->_nom == timeSig->_nom && self->_denom == timeSig->_denom);
+            [super isEqualToTimeSignature:timeSig]);
 }
 @end
 
@@ -258,7 +329,7 @@
     return ptTempoChange;
 }
 
-- (BOOL)isEqual:(id)other {
+- (BOOL) isEqual:(id)other {
     if (other == self)
         return YES;
     if (!other || ![other isKindOfClass:[self class]])
@@ -266,7 +337,7 @@
     return [self isEqualToTempoChange:other];
 }
 
-- (BOOL)isEqualToTempoChange:(nonnull PTTempoChange *)tempoChange {
+- (BOOL) isEqualToTempoChange:(nonnull PTTempoChange *)tempoChange {
     if (self == tempoChange)
         return YES;
     return (self->_pos == tempoChange->_pos && self->_tempo == tempoChange->_tempo &&
@@ -346,6 +417,15 @@
     return [self _tracksFromTracks:object->miditracks()];
 }
 
+- (nonnull NSArray<PTRegionRange *> *) regionRanges {
+    auto rangesSrc = object->region_ranges();
+    NSMutableArray<PTRegionRange *> *ranges = [NSMutableArray arrayWithCapacity:rangesSrc.size()];
+    for (auto r = rangesSrc.cbegin(); r != rangesSrc.cend(); ++r) {
+        [ranges addObject:[PTRegionRange regionRangeWithStart:r->startpos end:r->endpos]];
+    }
+    return ranges;
+}
+
 - (nullable NSData *) metadataBase64 {
     const unsigned char *data = object->metadata_base64();
     if (data == NULL) {
@@ -375,22 +455,22 @@
     return [PTMetadata metaWithTitle:title artist:artist contributors:contributors location:location];
 }
 
-- (nonnull NSArray<PTKeySignature *> *) keySignatures {
-    std::vector<PTFFormat::key_signature_t> keySigsSrc = object->keysignatures();
-    PTKeySignature *keySigs[keySigsSrc.size()];
+- (nonnull NSArray<PTKeySignatureEv *> *) keySignatures {
+    std::vector<PTFFormat::key_signature_ev_t> keySigsSrc = object->keysignatures();
+    PTKeySignatureEv *keySigs[keySigsSrc.size()];
     for (int i = 0; i < keySigsSrc.size(); i++) {
-        PTFFormat::key_signature_t k = keySigsSrc[i];
-        keySigs[i] = [PTKeySignature keySigWithPos:k.pos isMajor:k.is_major isSharp:k.is_sharp signs:k.sign_count];
+        PTFFormat::key_signature_ev_t k = keySigsSrc[i];
+        keySigs[i] = [PTKeySignatureEv keySigWithPos:k.pos isMajor:k.is_major isSharp:k.is_sharp signs:k.sign_count];
     }
     return [[NSArray alloc] initWithObjects:keySigs count:keySigsSrc.size()];
 }
 
-- (nonnull NSArray<PTTimeSignature *> *) timeSignatures {
-    std::vector<PTFFormat::time_signature_t> timeSigsSrc = object->timesignatures();
-    PTTimeSignature *timeSigs[timeSigsSrc.size()];
+- (nonnull NSArray<PTTimeSignatureEv *> *) timeSignatures {
+    std::vector<PTFFormat::time_signature_ev_t> timeSigsSrc = object->timesignatures();
+    PTTimeSignatureEv *timeSigs[timeSigsSrc.size()];
     for (int i = 0; i < timeSigsSrc.size(); i++) {
-        PTFFormat::time_signature_t t = timeSigsSrc[i];
-        timeSigs[i] = [PTTimeSignature timeSigWithPos:t.pos measureNum:t.measure_num nom:t.nominator denom:t.denominator];
+        PTFFormat::time_signature_ev_t t = timeSigsSrc[i];
+        timeSigs[i] = [PTTimeSignatureEv timeSigWithPos:t.pos measureNum:t.measure_num nom:t.nominator denom:t.denominator];
     }
     return [[NSArray alloc] initWithObjects:timeSigs count:timeSigsSrc.size()];
 }
@@ -403,6 +483,20 @@
         tempoChanges[i] = [PTTempoChange tempoChangeWithPos:t.pos tempo:t.tempo beatLength:t.beat_len];
     }
     return [[NSArray alloc] initWithObjects:tempoChanges count:tempoChangesSrc.size()];
+}
+
+- (nonnull PTKeySignature *) mainKeySignature {
+    auto [isMajor, isSharp, signs] = object->main_keysignature();
+    return [PTKeySignature keySigIsMajor:isMajor isSharp:isSharp signs:signs];
+}
+
+- (nonnull PTTimeSignature *) mainTimeSignature {
+    auto [nom, denom] = object->main_timesignature();
+    return [PTTimeSignature timeSigWithNom:nom denom:denom];
+}
+
+- (double) mainTempo {
+    return object->main_tempo();
 }
 
 @end

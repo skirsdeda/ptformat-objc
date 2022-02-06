@@ -28,6 +28,8 @@
 #include <string.h>
 #include <assert.h>
 #include <cmath>
+#include <algorithm>
+#include <unordered_map>
 
 #ifdef HAVE_GLIB
 # include <glib/gstdio.h>
@@ -44,6 +46,8 @@
 #define ZERO_TICKS		0xe8d4a51000ULL
 #define MAX_CONTENT_TYPE	0x3000
 #define MAX_CHANNELS_PER_TRACK	8
+#define THIRTY_SECOND   120000
+#define QUARTER         960000
 
 using namespace std;
 
@@ -55,6 +59,7 @@ PTFFormat::PTFFormat()
     , _product(NULL)
     , _session_meta_base64(NULL)
     , is_bigendian(false)
+    , _region_ranges_cached(false)
 {
 }
 
@@ -133,6 +138,8 @@ PTFFormat::cleanup(void) {
     _timesignatures.clear();
     _tempochanges.clear();
     free_all_blocks();
+    _region_ranges_cached = false;
+    _region_ranges.clear();
 }
 
 int64_t
@@ -1213,7 +1220,7 @@ PTFFormat::parsekeysig(block_t& blk) {
     if (is_major > 1 || is_sharp > 1 || signs > 7)
         return false;
 
-    key_signature_t parsed_sig = key_signature_t { pos, (bool)is_major, (bool)is_sharp, signs };
+    key_signature_ev_t parsed_sig = key_signature_ev_t(pos, (bool)is_major, (bool)is_sharp, signs);
     _keysignatures.push_back(parsed_sig);
     return true;
 }
@@ -1256,7 +1263,7 @@ PTFFormat::parsetimesigs_block(block_t &blk) {
         if (nom == 0 || denom == 0 || nom > 255 || denom > 255 || floor(log2(denom)) != ceil(log2(denom)))
             return false;
 
-        time_signature_t parsed_sig = time_signature_t { pos, measure_num, (uint8_t)nom, (uint8_t)denom };
+        time_signature_ev_t parsed_sig = time_signature_ev_t { pos, measure_num, (uint8_t)nom, (uint8_t)denom };
         _timesignatures.push_back(parsed_sig);
     }
     return true;
@@ -1298,11 +1305,176 @@ PTFFormat::parsetempochanges_block(block_t &blk) {
         data += 9; // 8b + 1b (pad)
 
         // check that tempo is within range (5 - 500) and beat length is divisible by 1/32 note length
-        if (tempo < 5. || tempo > 500. || beat_length % 120000 != 0)
+        if (tempo < 5. || tempo > 500. || beat_length % THIRTY_SECOND != 0)
             return false;
 
-        tempo_change_t tempo_change = tempo_change_t { pos, tempo, beat_length };
+        tempo_change_t tempo_change { pos, 0, tempo, beat_length };
+        if (!_tempochanges.empty()) {
+            auto prev = _tempochanges.back();
+            tempo_change.pos_in_samples = ticks_to_samples(tempo_change.pos, prev);
+        }
+
         _tempochanges.push_back(tempo_change);
     }
+
+    // if no tempos found, insert a single default tempo
+    if (_tempochanges.empty()) {
+        _tempochanges.push_back({ 0, 0, 120., QUARTER });
+    }
     return true;
+}
+
+const PTFFormat::key_signature_t
+PTFFormat::main_keysignature() {
+    if (_keysignatures.empty()) {
+        return {true, true, 0};
+    }
+    return find_main_event_value<key_signature_ev_t, key_signature_t>
+    (_keysignatures, [this](const key_signature_ev_t &e){ return ticks_to_samples(e.pos); });
+}
+
+const PTFFormat::time_signature_t
+PTFFormat::main_timesignature() {
+    if (_timesignatures.empty()) {
+        return {4, 4};
+    }
+    return find_main_event_value<time_signature_ev_t, time_signature_t>
+    (_timesignatures, [this](const time_signature_ev_t &e){ return ticks_to_samples(e.pos); });
+}
+
+const double
+PTFFormat::main_tempo() {
+    // _tempochanges always contains at least one item!
+    if (_tempochanges.size() < 2 || this->region_ranges().empty()) {
+        return _tempochanges[0].event_value();
+    }
+    return find_main_event_value<tempo_change_t, double>(_tempochanges, [](const tempo_change_t &t){ return t.pos_in_samples; });
+}
+
+// finds main event value (for tempo / time sig / key sig changes) by looking up event value
+// which is used for the longest region-covered time in entire session
+template <class EV, class EV_VAL>
+const EV_VAL
+PTFFormat::find_main_event_value(const std::vector<EV> &events, std::function<const uint64_t(const EV&)> ev_pos_in_samples) {
+    // TODO: assert that events is non-empty!
+    if (region_ranges().empty()) {
+        return events[0].event_value();
+    }
+    
+    using iter_type = typename std::vector<EV>::const_iterator;
+    std::function<const uint64_t(const iter_type&)> safe_pos_in_samples = [events, ev_pos_in_samples](const iter_type &i){
+        return i != events.cend() ? ev_pos_in_samples(*i) : UINT64_MAX;
+    };
+    // map of usage where event value is mapped to amount of region-covered samples where it's used
+    std::unordered_map<EV_VAL, uint64_t> usage;
+    // iterators of events i, next_i: next_i will always be i + 1; i starts at first event
+    auto i = events.cbegin();
+    auto next_i = std::next(i);
+    uint64_t length_from_prev = 0; // to track length from current range unused by previous event (when previous event ends before range ends)
+    uint64_t pos = safe_pos_in_samples(i); // position in samples for `i`
+    uint64_t next_pos = safe_pos_in_samples(next_i); // position in samples for `next_i`
+
+    auto r = this->region_ranges().cbegin();
+    while (r != this->region_ranges().cend()) {
+        // advance both iterators if:
+        // * range starts beyond next event position in samples AND
+        // * advanced iterator `i` will still be valid (!= cend())
+        if (r->startpos >= next_pos) {
+            if (next_i == events.cend()) {
+                break;
+            }
+            i++;
+            next_i++;
+            pos = next_pos;
+            next_pos = safe_pos_in_samples(next_i);
+        }
+        if (r->startpos >= next_pos) {
+            const uint64_t usage_length = min(length_from_prev, min(r->endpos, next_pos) - pos);
+            usage[i->event_value()] += usage_length;
+            length_from_prev -= usage_length;
+        } else {
+            usage[i->event_value()] += min(r->endpos, next_pos) - pos;
+            length_from_prev = max(0ULL, r->endpos - next_pos);
+            r++;
+        }
+    }
+
+    // find and return event value with max usage
+    using pair_type = std::pair<EV_VAL, uint64_t>;
+    const auto &main = std::max_element(usage.cbegin(), usage.cend(),
+                                        [](const pair_type &v1, const pair_type &v2){ return v1.second < v2.second; });
+    return main->first;
+}
+
+uint64_t
+PTFFormat::ticks_to_samples(uint64_t pos_in_ticks) const {
+    const auto &next_tempo = std::lower_bound(_tempochanges.cbegin(), _tempochanges.cend(), pos_in_ticks,
+                                              [](const tempo_change_t& t, uint64_t pos){ return t.pos < pos; });
+    // lower_bound will return either valid pointer to tempo change event or end(),
+    // so if it's not the first one, then it's safe to go one back
+    const auto &tempo = next_tempo == _tempochanges.cbegin() ? next_tempo : std::prev(next_tempo);
+    return ticks_to_samples(pos_in_ticks, *tempo);
+}
+
+uint64_t
+PTFFormat::ticks_to_samples(uint64_t pos_in_ticks, const tempo_change_t& t) const {
+    double beats = double(pos_in_ticks - t.pos) / t.beat_len;
+    // the rounding (instead of flooring) is done by PT itself, confirmed by tests
+    return t.pos_in_samples + uint64_t(round(beats * _sessionrate * 60 / t.tempo));
+}
+
+void
+PTFFormat::add_region_ranges_from_tracks(const std::vector<track_t> &tracks) {
+    int last_tidx = -1;
+    for (auto t = tracks.cbegin(); t != tracks.cend(); ++t) {
+        if (t->reg.length == 0) continue;
+        region_range_t range { t->reg.startpos, t->reg.startpos + t->reg.length };
+        if (t->reg.is_startpos_in_ticks) {
+            range.startpos = ticks_to_samples(range.startpos);
+            // !! if this is audio clip, r->length is in samples, hence a different endpos conversion
+            range.endpos = t->reg.wave.filename.empty() ? ticks_to_samples(range.endpos) : range.startpos + t->reg.length;
+        }
+        // check last region overlap (if it's on the same track) and fix length
+        if (last_tidx == t->index && _region_ranges.back().endpos > range.startpos) {
+            _region_ranges.back().endpos = range.startpos;
+        }
+        _region_ranges.push_back(range);
+        last_tidx = t->index;
+    }
+}
+
+const std::vector<PTFFormat::region_range_t>&
+PTFFormat::region_ranges(void) {
+    if (_region_ranges_cached) {
+        return _region_ranges;
+    }
+    _region_ranges.clear();
+
+    // 1. build vector of all region ranges with all start positions / end positions in samples
+    add_region_ranges_from_tracks(_tracks);
+    add_region_ranges_from_tracks(_miditracks);
+    // 2. sort all region ranges by start position
+    std::sort(_region_ranges.begin(), _region_ranges.end());
+    // 3. merge overlapping ranges
+    auto last_to_keep = _region_ranges.begin(); // last range to keep
+    auto next_r = last_to_keep == _region_ranges.end() ? last_to_keep : std::next(last_to_keep);
+    for (auto i = next_r; i != _region_ranges.end(); ++i) {
+        // If endpos of last range overlaps with startpos
+        if (last_to_keep->endpos >= i->startpos) {
+            // Merge previous and current range
+            last_to_keep->endpos = max(last_to_keep->endpos, i->endpos);
+        } else {
+            last_to_keep++;
+            if (last_to_keep != i) {
+                *last_to_keep = *i;
+            }
+        }
+    }
+    // 4. discard ranges beyond last_to_keep
+    if (last_to_keep != _region_ranges.end()) {
+        _region_ranges.erase(++last_to_keep, _region_ranges.end());
+    }
+
+    _region_ranges_cached = true;
+    return _region_ranges;
 }
