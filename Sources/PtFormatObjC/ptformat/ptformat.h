@@ -100,6 +100,9 @@ public:
         bool        is_startpos_in_ticks; // MIDI timebase if true, samples timebase otherwise
         uint64_t    startpos;
         uint64_t    sampleoffset;
+        // ! 1. For Audio clips, length will be always in samples
+        // ! 2. For Audio clips, length can be incorrect when clip is covered by next clip. A correction has to be done, limiting length to start of the next clip!
+        // ! 3. For MIDI clips, length will be either in ticks or samples (depending on is_startpos_in_ticks)
         uint64_t    length;
         wav_t       wave;
         std::vector<midi_ev_t> midi;
@@ -113,6 +116,16 @@ public:
                     other.name.c_str()) < 0);
         }
         region_t (uint16_t idx = 0) : index (idx), is_startpos_in_ticks (false), startpos (0), sampleoffset (0), length (0) {}
+    };
+
+    struct region_range_t {
+        // both positions in samples
+        uint64_t startpos;
+        uint64_t endpos;
+
+        bool operator <(const region_range_t& other) const {
+            return this->startpos < other.startpos;
+        }
     };
 
     struct track_t {
@@ -145,27 +158,60 @@ public:
      */
 
     struct key_signature_t {
-        uint64_t pos; // 8b
         bool     is_major; // otherwise - minor
         bool     is_sharp; // otherwise - flat
         uint8_t  sign_count; // how many alteration signs
+
+        bool operator==(const key_signature_t &other) const {
+            return (is_major == other.is_major && is_sharp == other.is_sharp &&
+                    sign_count == other.sign_count);
+        }
+    };
+
+    struct key_signature_ev_t : key_signature_t {
+        uint64_t pos; // 8b
+
+        key_signature_ev_t(uint64_t pos, bool is_major, bool is_sharp, uint8_t sign_count): pos(pos) {
+            this->is_major = is_major;
+            this->is_sharp = is_sharp;
+            this->sign_count = sign_count;
+        }
+
+        const key_signature_t event_value() const { return static_cast<const key_signature_t>(*this); }
     };
 
     struct time_signature_t {
-        uint64_t pos; // 8b
-        uint32_t measure_num; //4b
         uint8_t nominator; // actual range: 1-99 (takes up 4b in file)
         uint8_t denominator; // possible values 1/2/4/8/16/32/64 (takes up 4b in file)
+
+        bool operator==(const time_signature_t &other) const {
+            return (nominator == other.nominator && denominator == other.denominator);
+        }
+    };
+
+    struct time_signature_ev_t : time_signature_t {
+        uint64_t pos; // 8b
+        uint32_t measure_num; //4b
         // 1 event: 8b + 4b*3 + 16b (pad, seems to be constant) = 36b
+
+        time_signature_ev_t(uint64_t pos, uint32_t measure_num, uint8_t nom, uint8_t denom): pos(pos), measure_num(measure_num) {
+            this->nominator = nom;
+            this->denominator = denom;
+        }
+
+        const time_signature_t event_value() const { return static_cast<const time_signature_t>(*this); }
     };
 
     struct tempo_change_t {
         uint64_t pos; // 8b
+        uint64_t pos_in_samples; // - derived, not in file
         double tempo; // 8b
         uint64_t beat_len; // 3b used at most, sixteenth note being the shortest possible at 240,000 as decimal
                            // which coincides with 960,000 PPQN being used in Pro Tools
         // 1 event: 4b pad (00x4) + "Const" (5b) + 6b pad (01002e000000) + “TMS” (3b) + 16b pad (010014(00x4)(01|00)(00x8)) +
         //          8b POSITION + 2b pad (00(01|00)) + 8b TEMPO (double) + 8b BEAT LENGTH + 1b pad (0x00) = 61b
+
+        const double event_value() const { return tempo; }
     };
 
     bool find_track(uint16_t index, track_t& tt) const {
@@ -272,11 +318,16 @@ public:
     const std::vector<wav_t>&    audiofiles () const { return _audiofiles ; }
     const std::vector<region_t>& regions () const { return _regions ; }
     const std::vector<region_t>& midiregions () const { return _midiregions ; }
+    const std::vector<region_range_t>& region_ranges(void);
     const std::vector<track_t>&  tracks () const { return _tracks ; }
     const std::vector<track_t>&  miditracks () const { return _miditracks ; }
-    const std::vector<key_signature_t>& keysignatures () const { return _keysignatures ; }
-    const std::vector<time_signature_t>& timesignatures () const { return _timesignatures; }
+    const std::vector<key_signature_ev_t>& keysignatures () const { return _keysignatures ; }
+    const std::vector<time_signature_ev_t>& timesignatures () const { return _timesignatures; }
     const std::vector<tempo_change_t>& tempochanges () const { return _tempochanges; }
+
+    const key_signature_t main_keysignature();
+    const time_signature_t main_timesignature();
+    const double main_tempo();
 
     const unsigned char* unxored_data () const { return _ptfunxored; }
     uint64_t             unxored_size () const { return _len; }
@@ -292,12 +343,14 @@ private:
     std::vector<region_t> _midiregions;
     std::vector<track_t>  _tracks;
     std::vector<track_t>  _miditracks;
-    std::vector<key_signature_t> _keysignatures;
-    std::vector<time_signature_t> _timesignatures;
+    std::vector<key_signature_ev_t> _keysignatures;
+    std::vector<time_signature_ev_t> _timesignatures;
     std::vector<tempo_change_t> _tempochanges;
     unsigned char* _session_meta_base64;
     uint32_t _session_meta_base64_size;
     metadata_t _session_meta_parsed;
+    bool _region_ranges_cached;
+    std::vector<region_range_t> _region_ranges;
 
     std::string _path;
 
@@ -343,6 +396,31 @@ private:
     void cleanup(void);
     void free_block(struct block_t& b);
     void free_all_blocks(void);
+    uint64_t ticks_to_samples(uint64_t pos_in_ticks) const;
+    uint64_t ticks_to_samples(uint64_t pos_in_ticks, const tempo_change_t& t) const;
+    template <class EV, class EV_VAL> const EV_VAL find_main_event_value(const std::vector<EV> &events, std::function<const uint64_t(const EV&)> ev_pos_in_samples);
+    void add_region_ranges_from_tracks(const std::vector<track_t> &tracks);
+};
+
+template<>
+struct std::hash<PTFFormat::key_signature_t> {
+    std::size_t operator()(const PTFFormat::key_signature_t &k) const noexcept {
+        size_t ret = 17;
+        ret = ret * 31 + std::hash<bool>{}(k.is_major);
+        ret = ret * 31 + std::hash<bool>{}(k.is_sharp);
+        ret = ret * 31 + std::hash<uint8_t>{}(k.sign_count);
+        return ret;
+    }
+};
+
+template<>
+struct std::hash<PTFFormat::time_signature_t> {
+    std::size_t operator()(const PTFFormat::time_signature_t &t) const noexcept {
+        size_t ret = 17;
+        ret = ret * 31 + std::hash<uint8_t>{}(t.nominator);
+        ret = ret * 31 + std::hash<uint8_t>{}(t.denominator);
+        return ret;
+    }
 };
 
 #endif

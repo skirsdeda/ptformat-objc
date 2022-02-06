@@ -57,6 +57,14 @@
 @property (nonatomic, strong, readonly, nonnull) NSArray<PTMidiEv *> *midi;
 @end
 
+@interface PTRegionRange : NSObject
++ (nonnull instancetype) new NS_UNAVAILABLE;
++ (nonnull instancetype) regionRangeWithStart:(uint64_t)start end:(uint64_t)end;
+- (nonnull instancetype) init NS_UNAVAILABLE;
+@property (nonatomic, readonly) uint64_t start;
+@property (nonatomic, readonly) uint64_t end;
+@end
+
 // FIXME: this should have 1toMany rel with regions(clips) instead of 1to1!
 @interface PTTrack : NSObject
 + (nonnull instancetype) new NS_UNAVAILABLE;
@@ -79,22 +87,34 @@
 
 @interface PTKeySignature : NSObject
 + (nonnull instancetype) new NS_UNAVAILABLE;
-+ (nonnull instancetype) keySigWithPos:(uint64_t)pos isMajor:(BOOL)isMajor isSharp:(BOOL)isSharp signs:(uint8_t)signs;
++ (nonnull instancetype) keySigIsMajor:(BOOL)isMajor isSharp:(BOOL)isSharp signs:(uint8_t)signs;
 - (nonnull instancetype) init NS_UNAVAILABLE;
-@property (nonatomic, readonly) uint64_t pos;
 @property (nonatomic, readonly) BOOL isMajor;
 @property (nonatomic, readonly) BOOL isSharp;
 @property (nonatomic, readonly) uint8_t signs;
 @end
 
+@interface PTKeySignatureEv : PTKeySignature
++ (nonnull instancetype) new NS_UNAVAILABLE;
++ (nonnull instancetype) keySigWithPos:(uint64_t)pos isMajor:(BOOL)isMajor isSharp:(BOOL)isSharp signs:(uint8_t)signs;
+- (nonnull instancetype) init NS_UNAVAILABLE;
+@property (nonatomic, readonly) uint64_t pos;
+@end
+
 @interface PTTimeSignature : NSObject
++ (nonnull instancetype) new NS_UNAVAILABLE;
++ (nonnull instancetype) timeSigWithNom:(uint8_t)nom denom:(uint8_t)denom;
+- (nonnull instancetype) init NS_UNAVAILABLE;
+@property (nonatomic, readonly) uint8_t nom;
+@property (nonatomic, readonly) uint8_t denom;
+@end
+
+@interface PTTimeSignatureEv : PTTimeSignature
 + (nonnull instancetype) new NS_UNAVAILABLE;
 + (nonnull instancetype) timeSigWithPos:(uint64_t)pos measureNum:(uint32_t)measureNum nom:(uint8_t)nom denom:(uint8_t)denom;
 - (nonnull instancetype) init NS_UNAVAILABLE;
 @property (nonatomic, readonly) uint64_t pos;
 @property (nonatomic, readonly) uint32_t measureNum;
-@property (nonatomic, readonly) uint8_t nom;
-@property (nonatomic, readonly) uint8_t denom;
 @end
 
 @interface PTTempoChange : NSObject
@@ -122,10 +142,14 @@
 - (uint8_t) bitDepth;
 - (nonnull NSArray<PTTrack *> *) tracks;
 - (nonnull NSArray<PTTrack *> *) midiTracks;
+- (nonnull NSArray<PTRegionRange *> *) regionRanges;
 - (nonnull PTMetadata *) metadata;
-- (nonnull NSArray<PTKeySignature *> *) keySignatures;
-- (nonnull NSArray<PTTimeSignature *> *) timeSignatures;
+- (nonnull NSArray<PTKeySignatureEv *> *) keySignatures;
+- (nonnull NSArray<PTTimeSignatureEv *> *) timeSignatures;
 - (nonnull NSArray<PTTempoChange *> *) tempoChanges;
+- (nonnull PTKeySignature *) mainKeySignature;
+- (nonnull PTTimeSignature *) mainTimeSignature;
+- (double) mainTempo;
 @end
 
 #endif /* PRO_TOOLS_FORMAT_H */
