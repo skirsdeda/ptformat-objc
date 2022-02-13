@@ -499,4 +499,8 @@
     return object->main_tempo();
 }
 
+- (uint32_t) musicDurationSecsWithMaxGapSecs:(uint8_t)gapSecs {
+    return object->music_duration_secs(gapSecs);
+}
+
 @end

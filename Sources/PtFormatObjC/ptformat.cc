@@ -1478,3 +1478,26 @@ PTFFormat::region_ranges(void) {
     _region_ranges_cached = true;
     return _region_ranges;
 }
+
+const uint32_t
+PTFFormat::music_duration_secs(uint8_t max_gap_secs) {
+    const uint64_t max_gap = max_gap_secs * _sessionrate;
+
+    uint64_t end_at = 0, duration_agg = 0, duration_max = 0;
+    for (auto &r : region_ranges()) {
+        if (r.startpos > end_at + max_gap) {
+            if (duration_agg > duration_max) {
+                duration_max = duration_agg;
+            }
+            duration_agg = 0;
+            end_at = 0;
+        }
+        duration_agg += r.endpos - r.startpos; // add current region range length to aggregate
+        if (end_at != 0) {
+            duration_agg += r.startpos - end_at; // also add the gap length if end_at is set
+        }
+        end_at = r.endpos;
+    }
+
+    return round(double(max(duration_max, duration_agg)) / _sessionrate);
+}

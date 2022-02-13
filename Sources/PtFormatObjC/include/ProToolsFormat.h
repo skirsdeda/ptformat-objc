@@ -150,6 +150,7 @@
 - (nonnull PTKeySignature *) mainKeySignature;
 - (nonnull PTTimeSignature *) mainTimeSignature;
 - (double) mainTempo;
+- (uint32_t) musicDurationSecsWithMaxGapSecs:(uint8_t)gapSecs;
 @end
 
 #endif /* PRO_TOOLS_FORMAT_H */

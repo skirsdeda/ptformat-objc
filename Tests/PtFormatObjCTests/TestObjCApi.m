@@ -85,21 +85,13 @@
 }
 
 - (void)testUnxored {
-    NSError *error;
-    ProToolsFormat *ptFormat1 = [self loadFromResource:@"Untitled32" ofType:@"ptx" error:&error];
-    XCTAssertNotNil(ptFormat1);
-    XCTAssertNil(error);
-    ProToolsFormat *ptFormat2 = [self loadFromResource:@"Untitled32" ofType:@"ptx" error:&error];
-    XCTAssertNotNil(ptFormat2);
-    XCTAssertNil(error);
+    ProToolsFormat *ptFormat1 = [self loadAndCheck:@"Untitled32" ofType:@"ptx"];
+    ProToolsFormat *ptFormat2 = [self loadAndCheck:@"Untitled32" ofType:@"ptx"];
     XCTAssertEqualObjects([ptFormat1 unxoredData], [ptFormat2 unxoredData]);
 }
 
 - (void)testTempoTimeSigKeySig {
-    NSError *error;
-    ProToolsFormat *ptFormat = [self loadFromResource:@"TempoTimeKeySig" ofType:@"ptx" error:&error];
-    XCTAssertNotNil(ptFormat);
-    XCTAssertNil(error);
+    ProToolsFormat *ptFormat = [self loadAndCheck:@"TempoTimeKeySig" ofType:@"ptx"];
 
     NSArray<PTKeySignatureEv *> *keySigsActual = [ptFormat keySignatures];
     NSArray<PTKeySignatureEv *> *keySigsExpected = @[
@@ -177,10 +169,7 @@
 }
 
 - (void)testRegionPosLimits {
-    NSError *error;
-    ProToolsFormat *ptFormat = [self loadFromResource:@"RegionPosLimits" ofType:@"ptx" error:&error];
-    XCTAssertNotNil(ptFormat);
-    XCTAssertNil(error);
+    ProToolsFormat *ptFormat = [self loadAndCheck:@"RegionPosLimits" ofType:@"ptx"];
 
     NSArray<PTTrack *> *tracksActual = [ptFormat tracks];
     NSArray<PTTrack *> *midiTracksActual = [ptFormat midiTracks];
@@ -270,6 +259,24 @@
     XCTAssertEqual([ptFormat mainTempo], 500.);
     XCTAssertEqualObjects([ptFormat mainKeySignature], [PTKeySignature keySigIsMajor:YES isSharp:YES signs:0]);
     XCTAssertEqualObjects([ptFormat mainTimeSignature], [PTTimeSignature timeSigWithNom:4 denom:4]);
+}
+
+- (void)testMusicDuration {
+    ProToolsFormat *ptFormat1 = [self loadAndCheck:@"RegionPosLimits" ofType:@"ptx"];
+    XCTAssertEqual([ptFormat1 musicDurationSecsWithMaxGapSecs:2], 9);
+
+    ProToolsFormat *ptFormat2 = [self loadAndCheck:@"forArdour" ofType:@"pts"];
+    XCTAssertEqual([ptFormat2 musicDurationSecsWithMaxGapSecs:10], 37);
+
+    ProToolsFormat *ptFormat3 = [self loadAndCheck:@"Damien_monos" ofType:@"pts"];
+    XCTAssertEqual([ptFormat3 musicDurationSecsWithMaxGapSecs:10], 29);
+
+    ProToolsFormat *ptFormat4 = [self loadAndCheck:@"RegionTest" ofType:@"ptx"];
+    XCTAssertEqual([ptFormat4 musicDurationSecsWithMaxGapSecs:10], 60);
+
+    ProToolsFormat *ptFormat5 = [self loadAndCheck:@"DurationDetectTest" ofType:@"ptx"];
+    XCTAssertEqual([ptFormat5 musicDurationSecsWithMaxGapSecs:6], 72);
+    XCTAssertEqual([ptFormat5 musicDurationSecsWithMaxGapSecs:3], 48);
 }
 
 @end
