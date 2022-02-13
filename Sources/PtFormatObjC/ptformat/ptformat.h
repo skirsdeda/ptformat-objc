@@ -328,6 +328,7 @@ public:
     const key_signature_t main_keysignature();
     const time_signature_t main_timesignature();
     const double main_tempo();
+    const uint32_t music_duration_secs(uint8_t max_gap_secs);
 
     const unsigned char* unxored_data () const { return _ptfunxored; }
     uint64_t             unxored_size () const { return _len; }
