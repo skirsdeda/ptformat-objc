@@ -1304,8 +1304,8 @@ PTFFormat::parsetempochanges_block(block_t &blk) {
         uint64_t beat_length = u_endian_read8(data, is_bigendian);
         data += 9; // 8b + 1b (pad)
 
-        // check that tempo is within range (5 - 500) and beat length is divisible by 1/32 note length
-        if (tempo < 5. || tempo > 500. || beat_length % THIRTY_SECOND != 0)
+        // check that tempo is within range (5 - 999) and beat length is divisible by 1/32 note length
+        if (tempo < 5. || tempo > 999. || beat_length % THIRTY_SECOND != 0)
             return false;
 
         tempo_change_t tempo_change { pos, 0, tempo, beat_length };
