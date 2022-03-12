@@ -614,7 +614,7 @@ PTFFormat::parse_three_point(uint32_t j, uint64_t& start, uint64_t& offset, uint
     j += offsetbytes;
     length = u_endian_read<uint64_t>(&_ptfunxored[j+5], false, lengthbytes);
     j += lengthbytes;
-    start = u_endian_read<uint64_t>(&_ptfunxored[j+5], false, lengthbytes);
+    start = u_endian_read<uint64_t>(&_ptfunxored[j+5], false, startbytes);
 }
 
 void
@@ -634,7 +634,7 @@ PTFFormat::parse_region_info(uint32_t j, block_t& blk, region_t& r) {
     }
 
     std::vector<midi_ev_t> m;
-    r.is_startpos_in_ticks = start > ZERO_TICKS;
+    r.is_startpos_in_ticks = start >= ZERO_TICKS;
     r.startpos = r.is_startpos_in_ticks ? start - ZERO_TICKS : start;
     r.sampleoffset = sampleoffset;
     r.length = length;
@@ -812,7 +812,7 @@ PTFFormat::parserest(void) {
                                     if (!find_track(tindex, ti) || !find_region(rawindex, ti.reg)) {
                                         continue;
                                     }
-                                    ti.reg.is_startpos_in_ticks = start > ZERO_TICKS;
+                                    ti.reg.is_startpos_in_ticks = start >= ZERO_TICKS;
                                     ti.reg.startpos = ti.reg.is_startpos_in_ticks ? start - ZERO_TICKS : start;
                                     if (ti.reg.index != 65535) {
                                         _tracks.push_back(ti);
@@ -922,7 +922,7 @@ PTFFormat::parsemidi(void) {
 
                             region_t r (regionnumber++);
                             r.name = midiregionname;
-                            r.is_startpos_in_ticks = region_pos > ZERO_TICKS;
+                            r.is_startpos_in_ticks = region_pos >= ZERO_TICKS;
                             r.startpos = r.is_startpos_in_ticks ? region_pos - ZERO_TICKS : region_pos;
                             r.sampleoffset = 0;
                             r.length = mc.maxlen;
@@ -1029,7 +1029,7 @@ PTFFormat::parsemidi(void) {
                                         continue;
                                     }
 
-                                    ti.reg.is_startpos_in_ticks = start > ZERO_TICKS;
+                                    ti.reg.is_startpos_in_ticks = start >= ZERO_TICKS;
                                     ti.reg.startpos = ti.reg.is_startpos_in_ticks ? start - ZERO_TICKS : start;
                                     if (ti.reg.index != 65535) {
                                         _miditracks.push_back(ti);

@@ -174,12 +174,9 @@
     NSArray<PTTrack *> *tracksActual = [ptFormat tracks];
     NSArray<PTTrack *> *midiTracksActual = [ptFormat midiTracks];
 
-    // FIXME: verify that all values here actually make sense
-    // what the heck is posAbsolute? - other data OK
-    PTWav *wavAudioInSamples1 = [PTWav wavWithFilename:@"Audio in samples_01.aif" index:0 posAbsolute:65534 length:213964];
-    // what the heck is posAbsolute? - other data OK
-    PTWav *wavAudioInSamples2 = [PTWav wavWithFilename:@"Audio in samples_01.aif" index:0 posAbsolute:16777215 length:78000];
-    PTWav *wavAudioInSamples3 = [PTWav wavWithFilename:@"Audio in samples-TmShft_02.aif" index:2 posAbsolute:18257 length:42160];
+    PTWav *wavAudioInSamples1 = [PTWav wavWithFilename:@"Audio in samples_01.aif" index:0 posAbsolute:0 length:213964];
+    PTWav *wavAudioInSamples2 = [PTWav wavWithFilename:@"Audio in samples_01.aif" index:0 posAbsolute:0 length:78000];
+    PTWav *wavAudioInSamples3 = [PTWav wavWithFilename:@"Audio in samples-TmShft_02.aif" index:2 posAbsolute:280401 length:42160];
     PTRegion *regionAudioInSamples1 = [PTRegion regionWithName:@"Audio in samples_01" index:3 isStartPosInTicks:NO
                                                       startPos:96000 sampleOffset:0 length:213964 wave:wavAudioInSamples1 midi:@[]];
     PTRegion *regionAudioInSamples2 = [PTRegion regionWithName:@"Audio in samples_01-01" index:4 isStartPosInTicks:NO
