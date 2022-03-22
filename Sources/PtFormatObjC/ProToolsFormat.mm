@@ -103,14 +103,14 @@
 
 @implementation PTRegion
 + (instancetype) regionWithName:(nonnull NSString *)name index:(uint16_t)index isStartPosInTicks:(BOOL)isInTicks
-                       startPos:(uint64_t)startPos sampleOffset:(uint64_t)sampleOffset length:(uint64_t)length
+                       startPos:(uint64_t)startPos offset:(int64_t)offset length:(uint64_t)length
                            wave:(nullable PTWav *)wave midi:(nonnull NSArray<PTMidiEv *> *)midi {
     PTRegion *region = [[PTRegion alloc] init];
     region->_name = name;
     region->_index = index;
     region->_isStartPosInTicks = isInTicks;
     region->_startPos = startPos;
-    region->_sampleOffset = sampleOffset;
+    region->_offset = offset;
     region->_length = length;
     region->_wave = wave;
     region->_midi = midi;
@@ -125,7 +125,7 @@
         [midi addObject:[PTMidiEv fromMidiEv:r.midi[i]]];
     }
     return [PTRegion regionWithName:name index:r.index isStartPosInTicks:r.is_startpos_in_ticks
-                           startPos:r.startpos sampleOffset:r.sampleoffset length:r.length wave:maybeWave midi:midi];
+                           startPos:r.startpos offset:r.offset length:r.length wave:maybeWave midi:midi];
 }
 
 - (BOOL) isEqual:(id)other {
@@ -143,7 +143,7 @@
     BOOL wavesEqual = (self->_wave && region->_wave) ? [self->_wave isEqualToWav:region->_wave] : self->_wave == region->_wave;
     return ([self->_name isEqualToString:region->_name] && self->_index == region->_index &&
             self->_isStartPosInTicks == region->_isStartPosInTicks && self->_startPos == region->_startPos &&
-            self->_sampleOffset == region->_sampleOffset && self->_length == region->_length &&
+            self->_offset == region->_offset && self->_length == region->_length &&
             wavesEqual && [self->_midi isEqualToArray:region->_midi]);
 }
 @end

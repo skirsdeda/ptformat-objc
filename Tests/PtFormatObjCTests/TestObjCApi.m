@@ -174,22 +174,19 @@
     NSArray<PTTrack *> *tracksActual = [ptFormat tracks];
     NSArray<PTTrack *> *midiTracksActual = [ptFormat midiTracks];
 
-    // FIXME: verify that all values here actually make sense
-    // what the heck is posAbsolute? - other data OK
-    PTWav *wavAudioInSamples1 = [PTWav wavWithFilename:@"Audio in samples_01.aif" index:0 posAbsolute:65534 length:213964];
-    // what the heck is posAbsolute? - other data OK
-    PTWav *wavAudioInSamples2 = [PTWav wavWithFilename:@"Audio in samples_01.aif" index:0 posAbsolute:16777215 length:78000];
-    PTWav *wavAudioInSamples3 = [PTWav wavWithFilename:@"Audio in samples-TmShft_02.aif" index:2 posAbsolute:18257 length:42160];
+    PTWav *wavAudioInSamples1 = [PTWav wavWithFilename:@"Audio in samples_01.aif" index:0 posAbsolute:0 length:213964];
+    PTWav *wavAudioInSamples2 = [PTWav wavWithFilename:@"Audio in samples_01.aif" index:0 posAbsolute:0 length:78000];
+    PTWav *wavAudioInSamples3 = [PTWav wavWithFilename:@"Audio in samples-TmShft_02.aif" index:2 posAbsolute:280401 length:42160];
     PTRegion *regionAudioInSamples1 = [PTRegion regionWithName:@"Audio in samples_01" index:3 isStartPosInTicks:NO
-                                                      startPos:96000 sampleOffset:0 length:213964 wave:wavAudioInSamples1 midi:@[]];
+                                                      startPos:96000 offset:0 length:213964 wave:wavAudioInSamples1 midi:@[]];
     PTRegion *regionAudioInSamples2 = [PTRegion regionWithName:@"Audio in samples_01-01" index:4 isStartPosInTicks:NO
-                                                      startPos:384000 sampleOffset:0 length:78000 wave:wavAudioInSamples2 midi:@[]];
+                                                      startPos:384000 offset:0 length:78000 wave:wavAudioInSamples2 midi:@[]];
     PTRegion *regionAudioInTicks1 = [PTRegion regionWithName:@"Audio in samples_01" index:3 isStartPosInTicks:YES
-                                                    startPos:7680000 sampleOffset:0 length:213964 wave:wavAudioInSamples1 midi:@[]];
+                                                    startPos:7680000 offset:0 length:213964 wave:wavAudioInSamples1 midi:@[]];
     PTRegion *regionAudioInTicks2 = [PTRegion regionWithName:@"Audio in samples_01-01" index:4 isStartPosInTicks:YES
-                                                    startPos:15360000 sampleOffset:0 length:78000 wave:wavAudioInSamples2 midi:@[]];
+                                                    startPos:15360000 offset:0 length:78000 wave:wavAudioInSamples2 midi:@[]];
     PTRegion *regionAudioInTicks3 = [PTRegion regionWithName:@"Audio in samples-TmShft_02-01" index:2 isStartPosInTicks:YES
-                                                    startPos:38400000 sampleOffset:50001 length:42160 wave:wavAudioInSamples3 midi:@[]];
+                                                    startPos:38400000 offset:50001 length:42160 wave:wavAudioInSamples3 midi:@[]];
     NSArray<PTTrack *> *tracksExpected = @[
         [PTTrack trackWithName:@"Audio in samples" index:0 playlist:0 region:regionAudioInSamples1],
         [PTTrack trackWithName:@"Audio in samples" index:0 playlist:0 region:regionAudioInSamples2],
@@ -224,19 +221,17 @@
     ];
     // Length points to end of last note, not the clip range, which is good
     PTRegion *regionMidiInSamples1 = [PTRegion regionWithName:@"MIDI in samples-01" index:0 isStartPosInTicks:NO
-                                                     startPos:96000 sampleOffset:0 length:396000 wave:nil midi:midi1];
+                                                     startPos:96000 offset:96000 length:396000 wave:nil midi:midi1];
     PTRegion *regionMidiInSamples2 = [PTRegion regionWithName:@"MIDI in samples-02" index:1 isStartPosInTicks:NO
-                                                     startPos:4150241280 sampleOffset:0 length:0 wave:nil midi:@[]];
+                                                     startPos:4150241280 offset:4150241280 length:0 wave:nil midi:@[]];
     PTRegion *regionMidiInSamples3 = [PTRegion regionWithName:@"MIDI in samples-03" index:2 isStartPosInTicks:NO
-                                                     startPos:4151232000 sampleOffset:0 length:92092 wave:nil
+                                                     startPos:4151232000 offset:4151232000 length:92092 wave:nil
                                                          midi:@[[PTMidiEv midiEvWithPos:0 length:92092 note:60 velocity:80]]];
     // ?? startPos should be just 7680000, but length is OK. Is there some rounding being done?
     PTRegion *regionMidiInTicks1 = [PTRegion regionWithName:@"MIDI in ticks-01" index:3 isStartPosInTicks:YES
-                                                   startPos:7679917 sampleOffset:0 length:15840000 wave:nil midi:midi2];
-    // Sort of OK, because ticks position is impossible to check in ProTools (capped at 99999), but startpos is a bit over 24hr when converted to time and it show at project end
-    // and length is definitely OK
+                                                   startPos:7679917 offset:3839897 length:15840000 wave:nil midi:midi2];
     PTRegion *regionMidiInTicks2 = [PTRegion regionWithName:@"MIDI in ticks-03" index:5 isStartPosInTicks:YES
-                                                   startPos:691868160000 sampleOffset:0 length:19352667 wave:nil
+                                                   startPos:691870179000 offset:691868160000 length:19352667 wave:nil
                                                        midi:@[[PTMidiEv midiEvWithPos:0 length:19352667 note:58 velocity:80]]];
     NSArray<PTTrack *> *midiTracksExpected = @[
         [PTTrack trackWithName:@"MIDI in samples" index:0 playlist:0 region:regionMidiInSamples1],
@@ -251,7 +246,7 @@
 
     NSArray<PTRegionRange *> *regionRangesExpected = @[
         [PTRegionRange regionRangeWithStart:46080 end:492000],
-        [PTRegionRange regionRangeWithStart:4151208960 end:4151325076] // end should be 4151337190
+        [PTRegionRange regionRangeWithStart:4151221074 end:4151337190]
     ];
     NSArray<PTRegionRange *> *regionRanges = [ptFormat regionRanges];
 
@@ -277,6 +272,12 @@
     ProToolsFormat *ptFormat5 = [self loadAndCheck:@"DurationDetectTest" ofType:@"ptx"];
     XCTAssertEqual([ptFormat5 musicDurationSecsWithMaxGapSecs:6], 72);
     XCTAssertEqual([ptFormat5 musicDurationSecsWithMaxGapSecs:3], 48);
+}
+
+- (void)testMusicDuration2 {
+    ProToolsFormat *ptFormat1 = [self loadAndCheck:@"big_duration_mess" ofType:@"ptx"];
+    NSArray<PTTrack *> *midiTracksActual = [ptFormat1 midiTracks];
+    XCTAssertEqual([ptFormat1 musicDurationSecsWithMaxGapSecs:10], 53);
 }
 
 @end

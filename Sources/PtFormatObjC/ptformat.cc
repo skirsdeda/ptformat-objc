@@ -601,7 +601,7 @@ PTFFormat::parseaudio(void) {
 
 
 void
-PTFFormat::parse_three_point(uint32_t j, uint64_t& start, uint64_t& offset, uint64_t& length) {
+PTFFormat::parse_three_point(uint32_t j, int64_t& start, uint64_t& offset, uint64_t& length) {
     uint32_t indexes[] = {1, 2, 3, 4}; // offset b, length b, start b, skip b (if !is_big_endian, otherwise - reversed)
     if (is_bigendian) {
         std::reverse(indexes, indexes + 4);
@@ -614,12 +614,13 @@ PTFFormat::parse_three_point(uint32_t j, uint64_t& start, uint64_t& offset, uint
     j += offsetbytes;
     length = u_endian_read<uint64_t>(&_ptfunxored[j+5], false, lengthbytes);
     j += lengthbytes;
-    start = u_endian_read<uint64_t>(&_ptfunxored[j+5], false, lengthbytes);
+    start = u_endian_read<int64_t>(&_ptfunxored[j+5], false, startbytes);
 }
 
 void
 PTFFormat::parse_region_info(uint32_t j, block_t& blk, region_t& r) {
-    uint64_t findex, start, sampleoffset, length;
+    int64_t start;
+    uint64_t findex, sampleoffset, length;
 
     parse_three_point(j, start, sampleoffset, length);
 
@@ -634,9 +635,9 @@ PTFFormat::parse_region_info(uint32_t j, block_t& blk, region_t& r) {
     }
 
     std::vector<midi_ev_t> m;
-    r.is_startpos_in_ticks = start > ZERO_TICKS;
+    r.is_startpos_in_ticks = start >= ZERO_TICKS;
     r.startpos = r.is_startpos_in_ticks ? start - ZERO_TICKS : start;
-    r.sampleoffset = sampleoffset;
+    r.offset = sampleoffset;
     r.length = length;
     r.wave = f;
     r.midi = m;
@@ -674,6 +675,10 @@ PTFFormat::parserest(void) {
 
                     r.name = regionname;
                     r.index = rindex;
+                    // FIXME: parse_region_info should be consolidated with region info parsing logic in parse_midi
+                    // parse_midi region position logic has been tested excessively and handles some weird situations correctly.
+                    // Even if such weird situations (like negative start position) cannot happen for audio regions,
+                    // parsing of 0x2628 blocks code should live in a single place.s
                     parse_region_info(j, *d, r);
 
                     _regions.push_back(r);
@@ -684,6 +689,8 @@ PTFFormat::parserest(void) {
         }
     }
 
+    /// Maybe all required info for tracks is in 0x251a BLOCK TYPE and
+    /// this section (0x1014/1015 parsing) could be removed?
     // Parse tracks
     for (vector<PTFFormat::block_t>::iterator b = _blocks.begin();
             b != _blocks.end(); ++b) {
@@ -812,7 +819,7 @@ PTFFormat::parserest(void) {
                                     if (!find_track(tindex, ti) || !find_region(rawindex, ti.reg)) {
                                         continue;
                                     }
-                                    ti.reg.is_startpos_in_ticks = start > ZERO_TICKS;
+                                    ti.reg.is_startpos_in_ticks = start >= ZERO_TICKS;
                                     ti.reg.startpos = ti.reg.is_startpos_in_ticks ? start - ZERO_TICKS : start;
                                     if (ti.reg.index != 65535) {
                                         _tracks.push_back(ti);
@@ -852,8 +859,8 @@ struct mchunk {
 bool
 PTFFormat::parsemidi(void) {
     uint32_t i, j, k, n, rindex, tindex, mindex, count, rawindex;
-    uint64_t n_midi_events, zero_ticks, start, offset, length, start2, stop2;
-    uint64_t midi_pos, midi_len, max_pos, region_pos;
+    uint64_t n_midi_events, zero_ticks, offset, length, start2, stop2;
+    uint64_t midi_pos, midi_len, max_pos;
     uint8_t midi_velocity, midi_note;
     uint16_t regionnumber = 0;
     std::string midiregionname;
@@ -915,6 +922,7 @@ PTFFormat::parsemidi(void) {
                             j = d->offset + 2;
                             midiregionname = parsestring(j);
                             j += 4 + midiregionname.size();
+                            int64_t region_pos;
                             parse_three_point(j, region_pos, zero_ticks, midi_len);
                             j = d->offset + d->block_size;
                             rindex = u_endian_read4(&_ptfunxored[j], is_bigendian);
@@ -922,9 +930,8 @@ PTFFormat::parsemidi(void) {
 
                             region_t r (regionnumber++);
                             r.name = midiregionname;
-                            r.is_startpos_in_ticks = region_pos > ZERO_TICKS;
-                            r.startpos = r.is_startpos_in_ticks ? region_pos - ZERO_TICKS : region_pos;
-                            r.sampleoffset = 0;
+                            r.startpos = mc.zero - zero_ticks + region_pos;
+                            r.offset = region_pos;
                             r.length = mc.maxlen;
                             r.midi = mc.chunk;
 
@@ -936,7 +943,9 @@ PTFFormat::parsemidi(void) {
         } 
     }
     
-    // COMPOUND MIDI regions
+    // FIXME: COMPOUND MIDI regions - unclear what this code does and there are no tests for it
+    // At least 0x262c block can be found in .ptx files, but it has no inner blocks nor any data itself
+    // in any of the existing test files.
     for (vector<PTFFormat::block_t>::iterator b = _blocks.begin();
             b != _blocks.end(); ++b) {
         if (b->content_type == 0x262c) {
@@ -951,6 +960,7 @@ PTFFormat::parsemidi(void) {
                             j = d->offset + 2;
                             regionname = parsestring(j);
                             j += 4 + regionname.size();
+                            int64_t start;
                             parse_three_point(j, start, offset, length);
                             j = d->offset + d->block_size + 2;
                             n = u_endian_read2(&_ptfunxored[j], is_bigendian);
@@ -1023,14 +1033,18 @@ PTFFormat::parsemidi(void) {
                                     j = e->offset + 4;
                                     rawindex = u_endian_read4(&_ptfunxored[j], is_bigendian);
                                     j += 4 + 1;
-                                    start = u_endian_read6(&_ptfunxored[j], is_bigendian);
+                                    uint64_t start = u_endian_read6(&_ptfunxored[j], is_bigendian);
+                                    j += 6 + 1;
+                                    bool is_pos_in_ticks = _ptfunxored[j] >> 6; // for musical time - 0x40, for sample time - 0x00
                                     tindex = count;
                                     if (!find_miditrack(tindex, ti) || !find_midiregion(rawindex, ti.reg)) {
                                         continue;
                                     }
 
-                                    ti.reg.is_startpos_in_ticks = start > ZERO_TICKS;
-                                    ti.reg.startpos = ti.reg.is_startpos_in_ticks ? start - ZERO_TICKS : start;
+                                    ti.reg.is_startpos_in_ticks = is_pos_in_ticks;
+                                    if (!is_pos_in_ticks || start - ti.reg.offset != ZERO_TICKS) {
+                                        ti.reg.startpos = start >= ZERO_TICKS ? start - ZERO_TICKS : start;
+                                    }
                                     if (ti.reg.index != 65535) {
                                         _miditracks.push_back(ti);
                                     }
@@ -1425,7 +1439,6 @@ PTFFormat::ticks_to_samples(uint64_t pos_in_ticks, const tempo_change_t& t) cons
 
 void
 PTFFormat::add_region_ranges_from_tracks(const std::vector<track_t> &tracks) {
-    int last_tidx = -1;
     for (auto t = tracks.cbegin(); t != tracks.cend(); ++t) {
         if (t->reg.length == 0) continue;
         region_range_t range { t->reg.startpos, t->reg.startpos + t->reg.length };
@@ -1434,12 +1447,7 @@ PTFFormat::add_region_ranges_from_tracks(const std::vector<track_t> &tracks) {
             // !! if this is audio clip, r->length is in samples, hence a different endpos conversion
             range.endpos = t->reg.wave.filename.empty() ? ticks_to_samples(range.endpos) : range.startpos + t->reg.length;
         }
-        // check last region overlap (if it's on the same track) and fix length
-        if (last_tidx == t->index && _region_ranges.back().endpos > range.startpos) {
-            _region_ranges.back().endpos = range.startpos;
-        }
         _region_ranges.push_back(range);
-        last_tidx = t->index;
     }
 }
 

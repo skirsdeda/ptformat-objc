@@ -44,14 +44,14 @@
 @interface PTRegion : NSObject
 + (nonnull instancetype) new NS_UNAVAILABLE;
 + (nonnull instancetype) regionWithName:(nonnull NSString *)name index:(uint16_t)index isStartPosInTicks:(BOOL)isInTicks
-                               startPos:(uint64_t)startPos sampleOffset:(uint64_t)sampleOffset length:(uint64_t)length
+                               startPos:(uint64_t)startPos offset:(int64_t)offset length:(uint64_t)length
                                    wave:(nullable PTWav *)wave midi:(nonnull NSArray<PTMidiEv *> *)midi;
 - (nonnull instancetype) init NS_UNAVAILABLE;
 @property (nonatomic, strong, readonly, nonnull) NSString *name;
 @property (nonatomic, readonly) uint16_t index;
 @property (nonatomic, readonly) BOOL isStartPosInTicks;
 @property (nonatomic, readonly) uint64_t startPos;
-@property (nonatomic, readonly) uint64_t sampleOffset;
+@property (nonatomic, readonly) int64_t offset;
 @property (nonatomic, readonly) uint64_t length;
 @property (nonatomic, strong, readonly, nullable) PTWav *wave;
 @property (nonatomic, strong, readonly, nonnull) NSArray<PTMidiEv *> *midi;
