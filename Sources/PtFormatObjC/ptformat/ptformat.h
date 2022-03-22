@@ -70,7 +70,7 @@ public:
         std::string filename;
         uint16_t    index;
 
-        uint64_t    posabsolute;
+        int64_t     posabsolute;
         uint64_t    length;
 
         bool operator <(const struct wav_t& other) const {
@@ -99,7 +99,7 @@ public:
         uint16_t    index;
         bool        is_startpos_in_ticks; // MIDI timebase if true, samples timebase otherwise
         uint64_t    startpos;
-        uint64_t    sampleoffset;
+        int64_t     offset;
         // ! 1. For Audio clips, length will be always in samples
         // ! 2. For Audio clips, length can be incorrect when clip is covered by next clip. A correction has to be done, limiting length to start of the next clip!
         // ! 3. For MIDI clips, length will be either in ticks or samples (depending on is_startpos_in_ticks)
@@ -115,7 +115,7 @@ public:
             return (strcasecmp(this->name.c_str(),
                     other.name.c_str()) < 0);
         }
-        region_t (uint16_t idx = 0) : index (idx), is_startpos_in_ticks (false), startpos (0), sampleoffset (0), length (0) {}
+        region_t (uint16_t idx = 0) : index (idx), is_startpos_in_ticks (false), startpos (0), offset (0), length (0) {}
     };
 
     struct region_range_t {
@@ -392,7 +392,7 @@ private:
     void dump_block(struct block_t& b, int level);
     bool parse_version();
     void parse_region_info(uint32_t j, block_t& blk, region_t& r);
-    void parse_three_point(uint32_t j, uint64_t& start, uint64_t& offset, uint64_t& length);
+    void parse_three_point(uint32_t j, int64_t& start, uint64_t& offset, uint64_t& length);
     uint8_t gen_xor_delta(uint8_t xor_value, uint8_t mul, bool negative);
     void cleanup(void);
     void free_block(struct block_t& b);
