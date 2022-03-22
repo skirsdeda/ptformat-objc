@@ -1435,7 +1435,7 @@ void
 PTFFormat::add_region_ranges_from_tracks(const std::vector<track_t> &tracks) {
     for (auto t = tracks.cbegin(); t != tracks.cend(); ++t) {
         if (t->reg.length == 0) continue;
-        region_range_t range { (uint64_t)t->reg.startpos, t->reg.startpos + t->reg.length };
+        region_range_t range { t->reg.startpos, t->reg.startpos + t->reg.length };
         if (t->reg.is_startpos_in_ticks) {
             range.startpos = ticks_to_samples(range.startpos);
             // !! if this is audio clip, r->length is in samples, hence a different endpos conversion
