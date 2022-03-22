@@ -675,6 +675,10 @@ PTFFormat::parserest(void) {
 
                     r.name = regionname;
                     r.index = rindex;
+                    // FIXME: parse_region_info should be consolidated with region info parsing logic in parse_midi
+                    // parse_midi region position logic has been tested excessively and handles some weird situations correctly.
+                    // Even if such weird situations (like negative start position) cannot happen for audio regions,
+                    // parsing of 0x2628 blocks code should live in a single place.s
                     parse_region_info(j, *d, r);
 
                     _regions.push_back(r);
@@ -939,7 +943,9 @@ PTFFormat::parsemidi(void) {
         } 
     }
     
-    // COMPOUND MIDI regions
+    // FIXME: COMPOUND MIDI regions - unclear what this code does and there are no tests for it
+    // At least 0x262c block can be found in .ptx files, but it has no inner blocks nor any data itself
+    // in any of the existing test files.
     for (vector<PTFFormat::block_t>::iterator b = _blocks.begin();
             b != _blocks.end(); ++b) {
         if (b->content_type == 0x262c) {
