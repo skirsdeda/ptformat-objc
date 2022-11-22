@@ -1371,13 +1371,14 @@ template <class EV, class EV_VAL>
 const EV_VAL
 PTFFormat::find_main_event_value(const std::vector<EV> &events, std::function<const uint64_t(const EV&)> ev_pos_in_samples) {
     // TODO: assert that events is non-empty!
-    if (region_ranges().empty()) {
+    if (region_ranges().empty() || events.size() == 1) {
         return events[0].event_value();
     }
-    
+
+    auto end_i = events.cend();
     using iter_type = typename std::vector<EV>::const_iterator;
-    std::function<const uint64_t(const iter_type&)> safe_pos_in_samples = [events, ev_pos_in_samples](const iter_type &i){
-        return i != events.cend() ? ev_pos_in_samples(*i) : UINT64_MAX;
+    std::function<const uint64_t(const iter_type&)> safe_pos_in_samples = [=](const iter_type &i){
+        return i != end_i ? ev_pos_in_samples(*i) : UINT64_MAX;
     };
     // map of usage where event value is mapped to amount of region-covered samples where it's used
     std::unordered_map<EV_VAL, uint64_t> usage;
@@ -1394,7 +1395,7 @@ PTFFormat::find_main_event_value(const std::vector<EV> &events, std::function<co
         // * range starts beyond next event position in samples AND
         // * advanced iterator `i` will still be valid (!= cend())
         if (r->startpos >= next_pos) {
-            if (next_i == events.cend()) {
+            if (next_i == end_i) {
                 break;
             }
             i++;

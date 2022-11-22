@@ -63,7 +63,7 @@
 }
 
 - (ProToolsFormat*)loadAndCheck:(NSString*)path ofType:(NSString*)type {
-    NSError *error;
+    NSError *error = nil;
     ProToolsFormat *ptFormat = [self loadFromResource:path ofType:type error:&error];
     XCTAssertNotNil(ptFormat);
     XCTAssertNil(error);
@@ -77,7 +77,7 @@
 }
 
 - (void)testErrorOnInvalidPath {
-    NSError *error;
+    NSError *error = nil;
     ProToolsFormat *ptFormat = [ProToolsFormat newWithPath:@"/dev/null" error:&error];
     XCTAssertNil(ptFormat);
     XCTAssertNotNil(error);
