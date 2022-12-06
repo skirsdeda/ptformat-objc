@@ -18,3 +18,10 @@ jobs:
     - name: Run tests
     # 'swift test' fails due to resource bundle bug: https://bugs.swift.org/browse/SR-13560
       run: xcodebuild -scheme PtFormatObjC-Package -destination platform=macOS test
+    - id: build_path
+      run: echo "build_path=$(swift build --show-bin-path)" >> $GITHUB_OUTPUT
+    - name: Publish build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: Build
+        path: "${{ steps.build_path.outputs.build_path }}/*"
